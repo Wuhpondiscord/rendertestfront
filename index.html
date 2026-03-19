@@ -15,7 +15,7 @@
     }
     body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; user-select: none; height: 100vh; overflow: hidden; }
     #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(9,9,11,0.98); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
-    .start-btn { background: var(--border-highlight); color: var(--text-muted); border: none; padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+    .start-btn { background: var(--border-highlight); color: var(--text-muted); border: none; padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
     .start-btn.ready { background: var(--accent); color: #000; }
     #debug-log { margin-top: 20px; font-family: monospace; font-size: 11px; color: var(--accent); background: #000; padding: 10px; border-radius: 4px; border: 1px solid var(--border); width: 320px; text-align: left; white-space: pre-wrap; overflow-y: auto; max-height: 200px; }
     .top-bar { background: var(--panel); width: 100%; border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; }
@@ -34,12 +34,12 @@
 <div id="start-overlay">
   <h1 style="color:var(--accent); font-weight: 300;">STUDIO PRO</h1>
   <button id="start-btn" class="start-btn" disabled>CONNECTING...</button>
-  <div id="debug-log">Log initialized...</div>
+  <div id="debug-log">Status: Initializing DAW...</div>
 </div>
 
 <div class="top-bar">
   <div><span id="projectNameDisplay" style="color:var(--accent); font-weight:bold;">Untitled Session</span></div>
-  <div id="currentUserDisplay" style="font-size: 12px; color: var(--text-muted);">Syncing...</div>
+  <div id="currentUserDisplay" style="font-size: 12px; color: var(--text-muted);">Syncing user...</div>
 </div>
 
 <div class="transport">
@@ -61,8 +61,6 @@ import { io } from "https://cdn.socket.io/4.7.2/socket.io.esm.min.js";
 import * as Tone from "https://esm.sh/tone@14.8.49";
 
 const BACKEND_URL = "https://beat-backend-5nnu.onrender.com";
-// CRITICAL FIX: Discord RPC requires this exact URI
-const REDIRECT_URI = "https://127.0.0.1";
 
 let socket, discordSdk, discordUsername = "Producer", masterReverb, recorder;
 let currentStep32 = 0, isPlaying = false, isRecording = false;
@@ -84,6 +82,7 @@ async function boot() {
   while (!clientId) {
     try {
       debug("Waking up server...");
+      // In Discord, we MUST use the relative proxy path /api
       const fetchPath = isDiscord ? "/api/config" : `${BACKEND_URL}/api/config`;
       const res = await fetch(fetchPath);
       const data = await res.json();
@@ -94,25 +93,26 @@ async function boot() {
     }
   }
 
-  debug("Connected to Backend");
+  debug("Server Ready.");
   socket = io(BACKEND_URL, { transports: ["websocket"] });
   setupSocket();
 
   if (isDiscord) {
     try {
-      debug("Discord Auth Start...");
+      debug("Discord SDK Handshake...");
       discordSdk = new DiscordSDK(clientId);
       await discordSdk.ready();
       
+      // FIX: Removed manual redirect_uri. Discord handles this internally in Activities.
       const { code } = await discordSdk.commands.authorize({ 
         client_id: clientId, 
         response_type: "code", 
+        state: "",
         prompt: "none", 
-        scope: ["identify"], 
-        redirect_uri: REDIRECT_URI // FIX: Must be 127.0.0.1
+        scope: ["identify", "guilds"]
       });
 
-      debug("Exchanging code...");
+      debug("Authorizing...");
       const tokenRes = await fetch("/api/token", { 
         method: "POST", 
         headers: {"Content-Type":"application/json"}, 
@@ -121,14 +121,14 @@ async function boot() {
       const { access_token } = await tokenRes.json();
       const auth = await discordSdk.commands.authenticate({ access_token });
       discordUsername = auth.user.username;
-      debug("Authenticated: " + discordUsername);
+      debug("Logged in: " + discordUsername);
     } catch (err) {
-      debug("Auth Fallback: " + err.message);
-      discordUsername = "User_" + Math.floor(Math.random()*99);
+      debug("Auth Error: " + err.message);
+      discordUsername = "Producer_" + Math.floor(Math.random()*99);
     }
   } else {
-    debug("Web Browser Mode");
-    discordUsername = "Web_Producer";
+    debug("Web Browser Fallback.");
+    discordUsername = "Web_User_" + Math.floor(Math.random()*99);
   }
 
   btn.innerText = "ENTER STUDIO";
@@ -139,7 +139,7 @@ async function boot() {
 
 window.initAudio = async () => {
   await Tone.start();
-  masterReverb = new Tone.Reverb({ decay: 2.5, wet: 0.2 }).toDestination();
+  masterReverb = new Tone.Reverb({ decay: 2.5, wet: 0.15 }).toDestination();
   recorder = new Tone.Recorder();
   masterReverb.connect(recorder);
   document.getElementById("start-overlay").style.display = "none";
@@ -186,7 +186,7 @@ function buildGrid() {
 
     const row = document.createElement("div"); row.className = "row";
     const ctrl = document.createElement("div"); ctrl.className = "track-controls";
-    ctrl.innerHTML = `<span style="font-size:9px;color:var(--accent);font-weight:bold;">${ch.author}</span>
+    ctrl.innerHTML = `<span style="font-size:9px;color:var(--accent);font-weight:bold;text-transform:uppercase;">${ch.author}</span>
       <select onchange="window.upParam('${ch.id}', 'inst', this.value)" style="width:100%;margin-top:2px;">
         ${Object.keys(SYNTH_LIBRARY).map(cat => `<optgroup label="${cat}">${Object.keys(SYNTH_LIBRARY[cat]).map(i => `<option ${ch.inst===i?'selected':''}>${i}</option>`)}</optgroup>`)}
       </select>
