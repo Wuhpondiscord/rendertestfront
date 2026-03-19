@@ -588,40 +588,50 @@ const FETCH_PREFIX = "/api";
 const W = window;
 
 // ═══════════════════════════════════════════════════════════════
-//  IN-PAGE LOGGER
-//  Must run immediately after config so it catches every
-//  subsequent console call including errors from boot().
+//  IN-PAGE LOGGER — runs first, catches everything
 // ═══════════════════════════════════════════════════════════════
-(function(){
-  var MAX = 300;
-  var logOpen = false;
-  var worstLevel = ""; // "" | "warn" | "err"
+// Stub W.toggleLog immediately so the button onclick never
+// calls undefined, even if the logger body below throws.
+W.toggleLog = W.copyLogs = W.clearLogs = function(){};
 
-  // Save originals before overwriting
-  var _log   = console.log.bind(console);
-  var _warn  = console.warn.bind(console);
-  var _error = console.error.bind(console);
-  var _info  = console.info.bind(console);
+try { (function(){
 
-  function fmt(args){
-    var out = [];
-    for(var i=0;i<args.length;i++){
-      var a=args[i];
-      if(typeof a==="string"){ out.push(a); continue; }
-      try{ out.push(JSON.stringify(a)); }catch(e){ out.push(String(a)); }
-    }
-    return out.join(" ");
-  }
+  var logOpen    = false;
+  var worstLevel = 0; // 0=none 1=warn 2=err
+  var MAX        = 300;
 
+  // --- safe console save (no .bind which can throw on native fns) ---
+  var _log   = function(){ try{ Function.prototype.apply.call(console.log,   console, arguments); }catch(e){} };
+  var _warn  = function(){ try{ Function.prototype.apply.call(console.warn,  console, arguments); }catch(e){} };
+  var _error = function(){ try{ Function.prototype.apply.call(console.error, console, arguments); }catch(e){} };
+  var _info  = function(){ try{ Function.prototype.apply.call(console.info,  console, arguments); }catch(e){} };
+
+  // --- timestamp without padStart ---
   function ts(){
-    var d=new Date();
-    var h=String(d.getHours()).padStart(2,"0");
-    var m=String(d.getMinutes()).padStart(2,"0");
-    var s=String(d.getSeconds()).padStart(2,"0");
-    var ms=String(d.getMilliseconds()).padStart(3,"0");
-    return h+":"+m+":"+s+"."+ms;
+    try{
+      var d=new Date();
+      function p(n){ return (n<10?"0":"")+n; }
+      function p3(n){ return (n<10?"00":(n<100?"0":""))+n; }
+      return p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())+"."+p3(d.getMilliseconds());
+    }catch(e){ return "??:??:??.???"; }
   }
 
+  // --- format arguments without Array.from ---
+  function fmt(args){
+    try{
+      var parts=[];
+      for(var i=0;i<args.length;i++){
+        var a=args[i];
+        if(a===null){ parts.push("null"); continue; }
+        if(a===undefined){ parts.push("undefined"); continue; }
+        if(typeof a==="string"){ parts.push(a); continue; }
+        try{ parts.push(JSON.stringify(a)); }catch(e){ parts.push(typeof a); }
+      }
+      return parts.join(" ");
+    }catch(e){ return "[fmt error]"; }
+  }
+
+  // --- add a line to the panel ---
   function addLine(level, text){
     try{
       var el=document.getElementById("log-entries");
@@ -630,90 +640,100 @@ const W = window;
       line.className="log-line "+level;
       line.textContent="["+ts()+"] "+text;
       el.appendChild(line);
-      while(el.children.length>MAX) el.removeChild(el.firstChild);
-      el.scrollTop=el.scrollHeight;
-    }catch(e){ _error("logger addLine failed:",e); }
+      // trim oldest
+      while(el.childNodes.length>MAX && el.firstChild) el.removeChild(el.firstChild);
+      // scroll to bottom
+      el.scrollTop=99999999;
+    }catch(e){}
 
-    // Update button indicator — only escalate severity, never downgrade
+    // update button colour
     try{
-      var btn=document.getElementById("log-toggle");
-      if(!btn) return;
-      if(level==="err" && worstLevel!=="err"){
-        worstLevel="err";
-        if(!logOpen){ btn.style.color="var(--danger)"; btn.style.borderColor="var(--danger)"; }
-      } else if(level==="warn" && worstLevel==="" ){
-        worstLevel="warn";
-        if(!logOpen){ btn.style.color="var(--warn)"; btn.style.borderColor="var(--warn)"; }
+      var lv = (level==="err"?2:level==="warn"?1:0);
+      if(lv>worstLevel){
+        worstLevel=lv;
+        if(!logOpen){
+          var btn=document.getElementById("log-toggle");
+          if(btn){
+            btn.style.color      = lv===2?"#ff3060":"#ffb800";
+            btn.style.borderColor= lv===2?"#ff3060":"#ffb800";
+          }
+        }
       }
     }catch(e){}
   }
 
-  // Intercept all four console methods
-  console.log   = function(){ try{_log.apply(console,arguments);}catch(e){} addLine("log",  fmt(arguments)); };
-  console.warn  = function(){ try{_warn.apply(console,arguments);}catch(e){} addLine("warn", fmt(arguments)); };
-  console.error = function(){ try{_error.apply(console,arguments);}catch(e){} addLine("err",  fmt(arguments)); };
-  console.info  = function(){ try{_info.apply(console,arguments);}catch(e){} addLine("info", fmt(arguments)); };
+  // --- intercept console — wrapped so a throw can't kill the page ---
+  try{ console.log  =function(){ _log.apply(null,arguments);  addLine("log", fmt(arguments)); }; }catch(e){}
+  try{ console.warn =function(){ _warn.apply(null,arguments); addLine("warn",fmt(arguments)); }; }catch(e){}
+  try{ console.error=function(){ _error.apply(null,arguments);addLine("err", fmt(arguments)); }; }catch(e){}
+  try{ console.info =function(){ _info.apply(null,arguments); addLine("info",fmt(arguments)); }; }catch(e){}
 
-  // Catch uncaught errors and unhandled promise rejections
-  window.addEventListener("error", function(e){
-    addLine("err","UNCAUGHT: "+e.message+" ("+e.filename+":"+e.lineno+")");
-  });
-  window.addEventListener("unhandledrejection", function(e){
-    var msg = e.reason && e.reason.message ? e.reason.message : String(e.reason);
-    addLine("err","UNHANDLED PROMISE: "+msg);
-  });
+  // catch uncaught errors
+  try{
+    window.addEventListener("error",function(e){
+      addLine("err","UNCAUGHT: "+(e.message||"?")+" ("+e.filename+":"+e.lineno+")");
+    });
+    window.addEventListener("unhandledrejection",function(e){
+      var m="?"; try{ m=e.reason&&e.reason.message?e.reason.message:String(e.reason); }catch(x){}
+      addLine("err","PROMISE: "+m);
+    });
+  }catch(e){}
 
-  // Public API — all wrapped in try/catch so a bug here can't break the app
-  W.toggleLog = function(){
+  // --- public API ---
+  W.toggleLog=function(){
     try{
       logOpen=!logOpen;
       var panel=document.getElementById("log-panel");
-      var btn=document.getElementById("log-toggle");
-      if(panel) panel.classList.toggle("open",logOpen);
-      if(btn){
-        // Reset indicator when user opens the panel
-        if(logOpen){ worstLevel=""; btn.style.color=""; btn.style.borderColor=""; }
+      if(panel) panel.className=logOpen?"open":"";
+      if(logOpen){
+        // reset button colour
+        worstLevel=0;
+        var btn=document.getElementById("log-toggle");
+        if(btn){ btn.style.color=""; btn.style.borderColor=""; }
       }
-    }catch(e){ _error("toggleLog failed:",e); }
+    }catch(e){ _error("toggleLog err",e); }
   };
 
-  W.copyLogs = function(){
+  W.copyLogs=function(){
     try{
       var el=document.getElementById("log-entries");
-      var text=Array.from(el.children).map(function(l){return l.textContent;}).join("\n");
+      var lines=[]; var kids=el.childNodes;
+      for(var i=0;i<kids.length;i++) lines.push(kids[i].textContent||"");
+      var text=lines.join("\n");
       var btn=document.getElementById("log-copy");
-      function onCopied(){
-        if(btn){ btn.textContent="✓ COPIED"; setTimeout(function(){ btn.textContent="⧉ COPY ALL"; },1800); }
-      }
-      // Try modern clipboard API first, fall back silently
-      if(navigator.clipboard && navigator.clipboard.writeText){
-        navigator.clipboard.writeText(text).then(onCopied).catch(function(){
-          // clipboard blocked (common in iframes) — show the text in a prompt instead
-          // so user can manually select+copy
-          window.prompt("Copy all logs (Ctrl+A, Ctrl+C):", text);
+      function ok(){ if(btn){btn.textContent="✓ COPIED";setTimeout(function(){btn.textContent="⧉ COPY ALL";},1800);} }
+      // try clipboard API, fall back to prompt (works everywhere incl. Discord iframe)
+      if(window.navigator&&window.navigator.clipboard&&window.navigator.clipboard.writeText){
+        window.navigator.clipboard.writeText(text).then(ok).catch(function(){
+          try{ window.prompt("Select all + copy:",text); }catch(x){}
         });
       } else {
-        window.prompt("Copy all logs (Ctrl+A, Ctrl+C):", text);
+        try{ window.prompt("Select all + copy:",text); }catch(x){}
       }
-    }catch(e){ _error("copyLogs failed:",e); }
+    }catch(e){ _error("copyLogs err",e); }
   };
 
-  W.clearLogs = function(){
+  W.clearLogs=function(){
     try{
       var el=document.getElementById("log-entries");
       if(el) el.innerHTML="";
+      worstLevel=0;
       var btn=document.getElementById("log-toggle");
       if(btn){ btn.style.color=""; btn.style.borderColor=""; }
-      worstLevel="";
     }catch(e){}
   };
 
-  // Log environment summary — these are the first lines that appear
-  console.info("ENV: "+(IN_DISCORD?"DISCORD ACTIVITY":"BROWSER DIRECT"));
-  console.info("HOST: "+location.hostname);
-  console.info("BACKEND: "+BACKEND);
-  console.info("SOCKET_PATH: "+SOCKET_PATH);
-})();
+  // first lines — show environment immediately
+  addLine("info","ENV:    "+(IN_DISCORD?"DISCORD ACTIVITY":"BROWSER DIRECT"));
+  addLine("info","HOST:   "+location.hostname);
+  addLine("info","BACK:   "+BACKEND);
+  addLine("info","SOCK:   "+SOCKET_PATH);
+
+})(); } catch(outerErr) {
+  // If the entire logger IIFE threw, at minimum make the button open a plain alert
+  W.toggleLog=function(){ alert("Logger failed to init: "+outerErr); };
+}
+
 
 
 // ── audio ──────────────────────────────────────────────────────
