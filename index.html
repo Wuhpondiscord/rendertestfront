@@ -575,13 +575,19 @@
 // ═══════════════════════════════════════════════════════════════
 //  CONFIG
 //  ─────────────────────────────────────────────────────────────
-//  URL mapping in Developer Portal:
-//    Prefix /api  →  beat-backend-5nnu.onrender.com
+//  Developer Portal → Activities → URL Mappings ORDER MATTERS:
 //
-//  Discord applies mappings AFTER stripping /.proxy/ internally.
-//  Frontend uses /api/... → Discord strips /.proxy → routes /api/... to Render.
+//    1st: Prefix /api  → beat-backend-5nnu.onrender.com
+//    2nd: Prefix /     → wuhpondiscord.github.io/rendertestfront
 //
-//  In browser: hit Render directly.
+//  /api MUST be listed BEFORE / — otherwise every request including
+//  /api/config matches the / rule first and goes to GitHub Pages.
+//
+//  In Discord, prefix /.proxy/ is required for relative paths.
+//    /.proxy/api/config → Discord strips /.proxy → checks mappings
+//    → /api matches → forwards to Render as /api/config ✓
+//
+//  In browser: hit Render directly with full URL.
 // ═══════════════════════════════════════════════════════════════
 // Detect Discord Activity environment.
 // IMPORTANT: only match *.discordsays.com — NOT generic "discord" hostnames.
@@ -746,6 +752,9 @@ try { (function(){
   addLine("info","API_BASE: " + API_BASE);
   addLine("info","SOCKPATH: " + SOCKET_PATH);
   addLine("info","IOSRC:    " + SOCKETIO_SCRIPT);
+  if(IN_DISCORD){
+    addLine("warn","CHECK: Portal mapping order must be /api BEFORE / !")
+  }
 
 })(); } catch(outerErr) {
   // If the entire logger IIFE threw, at minimum make the button open a plain alert
