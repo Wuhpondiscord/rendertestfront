@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Discord Studio Pro</title>
+  <title>Sleezy Records</title>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
@@ -423,7 +423,7 @@
 
 <!-- OVERLAY -->
 <div id="overlay">
-  <div class="ov-logo">DISCORD STUDIO PRO</div>
+  <div class="ov-logo">SLEEZY RECORDS</div>
   <div class="ov-sub">COLLABORATIVE BEAT MAKER</div>
   <div class="ov-bar"><div class="ov-fill" id="ov-fill"></div></div>
   <div id="ov-msg">INITIALIZING...</div>
@@ -501,15 +501,31 @@
 
 <script>
 // ═══════════════════════════════════════════════════════════════
-//  CONFIG
+//  CONFIG — environment-aware routing
 //  ─────────────────────────────────────────────────────────────
-//  BACKEND is now the Discord proxy prefix "/api".
-//  Discord routes /api/* → beat-backend-5nnu.onrender.com/*
-//  Server routes are /api/config, /api/token — so full paths
-//  become /api/api/config, /api/api/token through the proxy.
-//  Socket.io uses path "/api/socket.io" through the same tunnel.
+//  IN DISCORD (*.discordsays.com host):
+//    BACKEND = "/api"  — Discord proxy prefix
+//    fetch("/api/api/config") → Discord strips /api → Render /api/config ✓
+//    io({ path:"/api/socket.io" }) → Discord strips /api → Render /socket.io ✓
+//
+//  IN BROWSER (GitHub Pages or localhost — direct connection):
+//    BACKEND = "https://beat-backend-5nnu.onrender.com"
+//    fetch(BACKEND + "/api/config") → direct hit to Render ✓
+//    io(BACKEND, { path:"/socket.io" }) → direct socket connection ✓
 // ═══════════════════════════════════════════════════════════════
-const BACKEND = "/api";
+const IN_DISCORD   = location.hostname.endsWith(".discordsays.com");
+const RENDER_URL   = "https://beat-backend-5nnu.onrender.com";
+// When in Discord: all requests go through the /api proxy prefix.
+// When in browser: requests go directly to Render.
+const BACKEND      = IN_DISCORD ? "/api" : RENDER_URL;
+// Socket.io path differs: through Discord proxy it must be /api/socket.io,
+// direct it's the default /socket.io.
+const SOCKET_PATH  = IN_DISCORD ? "/api/socket.io" : "/socket.io";
+// Fetch path for server routes (/api/config, /api/token).
+// In Discord: BACKEND="/api" + FETCH_PREFIX="/api" = "/api/api/config" ✓
+// In browser: BACKEND="https://...render.com" + FETCH_PREFIX="/api" = full URL ✓
+const FETCH_PREFIX = "/api";
+
 const W = window;
 
 // ── audio ──────────────────────────────────────────────────────
@@ -700,26 +716,22 @@ async function boot(){
 
   ovMsg("CONNECTING TO SERVER...", 35);
   try{
-    // Connect through the Discord proxy tunnel.
-    // - No URL argument: socket.io connects to the same origin (Discord's proxy host).
-    // - path: "/api/socket.io" tells socket.io where the handshake endpoint lives.
-    //   Discord sees /api/* and forwards to beat-backend-5nnu.onrender.com/*,
-    //   so /api/socket.io/* → beat-backend-5nnu.onrender.com/socket.io/*
-    // - transports: websocket first for low latency, polling as fallback.
-    socket = io({
-      path: "/api/socket.io",
-      transports: ["websocket", "polling"],
-      timeout: 8000,
-    });
+    // IN_DISCORD: connect to same origin (Discord's proxy), path="/api/socket.io"
+    //   Discord proxy strips /api and forwards to Render's /socket.io ✓
+    // IN BROWSER: connect directly to Render with default /socket.io path ✓
+    socket = IN_DISCORD
+      ? io({ path: SOCKET_PATH, transports: ["websocket", "polling"], timeout: 8000 })
+      : io(RENDER_URL, { path: SOCKET_PATH, transports: ["websocket", "polling"], timeout: 8000 });
     setupSocket();
   }catch(e){ console.warn("Socket error:", e); }
 
   ovMsg("FETCHING CONFIG...", 55);
   let clientId = null;
   try{
-    // BACKEND = "/api", server route = "/api/config"
-    // Full proxy path: /api/api/config → forwarded to beat-backend.../api/config ✓
-    const r = await fetch(BACKEND + "/api/config");
+    // BACKEND + FETCH_PREFIX + "/config"
+    // Discord: "/api" + "/api" + "/config" = "/api/api/config" → Render /api/config ✓
+    // Browser: "https://...render.com" + "/api" + "/config" → Render /api/config ✓
+    const r = await fetch(BACKEND + FETCH_PREFIX + "/config");
     const j = await r.json();
     clientId = j.clientId;
   }catch(e){ console.warn("Config fetch failed:", e); }
@@ -744,13 +756,11 @@ async function boot(){
         prompt: "none", scope: ["identify"],
       });
 
-      const tr = await fetch(BACKEND + "/api/token", {
+      const tr = await fetch(BACKEND + FETCH_PREFIX + "/token", {
         method: "POST",
         headers: { "Content-Type":"application/json" },
         body: JSON.stringify({ code }),
       });
-      // BACKEND + "/api/token" = "/api/api/token"
-      // Discord proxy: /api/api/token → beat-backend.../api/token ✓
       const { access_token } = await tr.json();
       const auth = await discordSdk.commands.authenticate({ access_token });
       username = auth.user.global_name || auth.user.username;
