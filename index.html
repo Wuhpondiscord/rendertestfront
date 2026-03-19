@@ -60,9 +60,9 @@ import { DiscordSDK } from "https://cdn.jsdelivr.net/npm/@discord/embedded-app-s
 import { io } from "https://cdn.socket.io/4.7.2/socket.io.esm.min.js";
 import * as Tone from "https://esm.sh/tone@14.8.49";
 
-// We use relative paths for fetch so Discord Proxy works
 const BACKEND_URL = "https://beat-backend-5nnu.onrender.com";
-const REDIRECT_URI = window.location.origin + window.location.pathname;
+// CRITICAL FIX: Discord RPC requires this exact URI
+const REDIRECT_URI = "https://127.0.0.1";
 
 let socket, discordSdk, discordUsername = "Producer", masterReverb, recorder;
 let currentStep32 = 0, isPlaying = false, isRecording = false;
@@ -74,7 +74,6 @@ const debug = (msg) => {
     log.scrollTop = log.scrollHeight;
 };
 
-// --- 1. BOOT SEQUENCE ---
 async function boot() {
   const btn = document.getElementById("start-btn");
   const searchParams = new URLSearchParams(window.location.search);
@@ -84,27 +83,24 @@ async function boot() {
 
   while (!clientId) {
     try {
-      debug("Waking up Render...");
-      // CRITICAL: We use relative path '/api' so it goes through Discord's URL Mapping
+      debug("Waking up server...");
       const fetchPath = isDiscord ? "/api/config" : `${BACKEND_URL}/api/config`;
       const res = await fetch(fetchPath);
       const data = await res.json();
       clientId = data.clientId;
     } catch (e) {
-      debug("Still waiting for server...");
-      await new Promise(r => setTimeout(r, 4000));
+      debug("Retrying connection...");
+      await new Promise(r => setTimeout(r, 3000));
     }
   }
 
-  debug("Server connected!");
-  
-  // Socket.io usually needs the direct URL because of WebSocket headers
+  debug("Connected to Backend");
   socket = io(BACKEND_URL, { transports: ["websocket"] });
   setupSocket();
 
   if (isDiscord) {
     try {
-      debug("Starting Discord Auth...");
+      debug("Discord Auth Start...");
       discordSdk = new DiscordSDK(clientId);
       await discordSdk.ready();
       
@@ -113,10 +109,10 @@ async function boot() {
         response_type: "code", 
         prompt: "none", 
         scope: ["identify"], 
-        redirect_uri: REDIRECT_URI 
+        redirect_uri: REDIRECT_URI // FIX: Must be 127.0.0.1
       });
 
-      debug("Exchanging token...");
+      debug("Exchanging code...");
       const tokenRes = await fetch("/api/token", { 
         method: "POST", 
         headers: {"Content-Type":"application/json"}, 
@@ -125,13 +121,13 @@ async function boot() {
       const { access_token } = await tokenRes.json();
       const auth = await discordSdk.commands.authenticate({ access_token });
       discordUsername = auth.user.username;
-      debug("Logged in as " + discordUsername);
+      debug("Authenticated: " + discordUsername);
     } catch (err) {
-      debug("Discord Auth Error: " + err.message);
+      debug("Auth Fallback: " + err.message);
       discordUsername = "User_" + Math.floor(Math.random()*99);
     }
   } else {
-    debug("Web Browser Mode.");
+    debug("Web Browser Mode");
     discordUsername = "Web_Producer";
   }
 
@@ -141,7 +137,6 @@ async function boot() {
   btn.onclick = window.initAudio;
 }
 
-// --- 2. AUDIO ENGINE ---
 window.initAudio = async () => {
   await Tone.start();
   masterReverb = new Tone.Reverb({ decay: 2.5, wet: 0.2 }).toDestination();
@@ -164,7 +159,6 @@ window.initAudio = async () => {
   }, "32n");
 };
 
-// --- 3. UI & SYNTHS ---
 const SYNTH_LIBRARY = {
     "Drums": { 
         "Kick - 808": () => new Tone.MembraneSynth(), 
@@ -226,7 +220,6 @@ function updatePlayhead(tick) {
   });
 }
 
-// --- GLOBALS ---
 window.togglePlay = () => socket.emit("togglePlay", !isPlaying);
 window.upParam = (id, key, value) => socket.emit("updateTrackParam", { channelId: id, key, value });
 window.removeTrack = (id) => socket.emit("removeTrack", id);
