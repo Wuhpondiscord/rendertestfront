@@ -716,12 +716,28 @@ async function boot(){
 
   ovMsg("CONNECTING TO SERVER...", 35);
   try{
-    // IN_DISCORD: connect to same origin (Discord's proxy), path="/api/socket.io"
-    //   Discord proxy strips /api and forwards to Render's /socket.io ✓
-    // IN BROWSER: connect directly to Render with default /socket.io path ✓
+    // CRITICAL: Discord's Activity proxy does NOT support WebSocket upgrades.
+    // It only proxies standard HTTP requests (including long-polling).
+    // Using "websocket" transport inside Discord causes the silent failures seen in logs.
+    // Fix: force "polling" only when inside Discord; use websocket-first outside.
+    const discordTransports = ["polling"];          // Discord proxy: HTTP only
+    const browserTransports = ["websocket", "polling"]; // Direct: prefer WS
+
     socket = IN_DISCORD
-      ? io({ path: SOCKET_PATH, transports: ["websocket", "polling"], timeout: 8000 })
-      : io(RENDER_URL, { path: SOCKET_PATH, transports: ["websocket", "polling"], timeout: 8000 });
+      ? io({
+          path      : SOCKET_PATH,
+          transports: discordTransports,
+          timeout   : 10000,
+          reconnectionAttempts: 10,
+          reconnectionDelay   : 1000,
+        })
+      : io(RENDER_URL, {
+          path      : SOCKET_PATH,
+          transports: browserTransports,
+          timeout   : 10000,
+          reconnectionAttempts: 10,
+          reconnectionDelay   : 1000,
+        });
     setupSocket();
   }catch(e){ console.warn("Socket error:", e); }
 
@@ -1200,12 +1216,29 @@ function buildLayerRow(rack, beat, layer){
 // ═══════════════════════════════════════════════════════════════
 function setupSocket(){
   socket.on("connect", ()=>{
+    console.log("Socket connected. Transport:", socket.io.engine.transport.name);
     document.getElementById("status").textContent = "LIVE";
     document.getElementById("status").classList.add("live");
   });
-  socket.on("disconnect", ()=>{
+
+  socket.on("disconnect", (reason)=>{
+    console.warn("Socket disconnected:", reason);
     document.getElementById("status").textContent = "OFFLINE";
     document.getElementById("status").classList.remove("live");
+  });
+
+  socket.on("connect_error", (err)=>{
+    console.warn("Socket connect_error:", err.message);
+    document.getElementById("status").textContent = "OFFLINE";
+    document.getElementById("status").classList.remove("live");
+  });
+
+  socket.io.on("reconnect", (attempt)=>{
+    console.log("Socket reconnected after", attempt, "attempts");
+  });
+
+  socket.io.on("reconnect_error", (err)=>{
+    console.warn("Socket reconnect_error:", err.message);
   });
 
   socket.on("state", ns=>{
