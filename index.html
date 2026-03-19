@@ -5,363 +5,1336 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Discord Studio Pro</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
-  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+
   <style>
     :root {
-      --bg: #09090b; --panel: #18181f; --panel-light: #24242f;
-      --text: #e2e2e8; --text-muted: #8b8b9e;
-      --border: #313142; --border-highlight: #454559;
-      --accent: #00d4ff; --danger: #ff3366; --record: #ff4747;
-      --step-off-1: #252530; --step-off-2: #2e2e3b;
-      --step-on: #00d4ff; --step-active: #ffffff;
+      --bg: #07070a;
+      --panel: #111118;
+      --panel-light: #1a1a24;
+      --panel-hover: #22222f;
+      --text: #dddde8;
+      --text-muted: #6b6b84;
+      --text-dim: #44445a;
+      --border: #252535;
+      --border-highlight: #383850;
+      --accent: #00d4ff;
+      --accent-dim: rgba(0,212,255,0.12);
+      --accent-glow: rgba(0,212,255,0.35);
+      --danger: #ff3366;
+      --record: #ff4747;
+      --record-glow: rgba(255,71,71,0.4);
+      --success: #00e5a0;
+      --warn: #ffb800;
+      --step-off-1: #1c1c28;
+      --step-off-2: #202030;
+      --step-on: #00d4ff;
+      --step-active-border: #ffffff;
+      --mono: 'Space Mono', monospace;
+      --sans: 'DM Sans', sans-serif;
     }
-    
-    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; user-select: none; height: 100vh; overflow: hidden; }
 
-    #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(9,9,11,0.98); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
-    #start-overlay h1 { color: var(--accent); margin-bottom: 20px; font-weight: 300; letter-spacing: 2px;}
-    
-    .start-btn { background: var(--border-highlight); color: var(--text-muted); border: none; padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: not-allowed; transition: 0.2s; }
-    .start-btn.ready { background: var(--accent); color: #000; cursor: pointer; }
-    .start-btn.ready:hover { transform: scale(1.05); }
+    * { box-sizing: border-box; }
 
-    .top-bar { background: var(--panel); width: 100%; border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; }
-    .nav-group { display: flex; align-items: center; gap: 10px; }
-    .project-name { font-weight: 600; font-size: 14px; color: var(--accent); margin-right: 15px;}
-    
-    .transport { background: var(--panel-light); width: 100%; padding: 10px 20px; display: flex; justify-content: center; align-items: center; gap: 15px; border-bottom: 1px solid var(--border); box-sizing: border-box;}
-    .status-area { position: absolute; left: 20px; display: flex; align-items: center; gap: 15px; }
-    #status { font-size: 11px; font-weight: bold; color: var(--text-muted); padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px;}
-    #users { font-size: 12px; color: var(--text-muted); }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      user-select: none;
+      height: 100vh;
+      overflow: hidden;
+    }
 
-    button, select { background: var(--panel); color: var(--text); border: 1px solid var(--border); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; transition: 0.1s; outline: none; }
-    button:hover, select:hover { background: var(--border-highlight); }
-    #playBtn { background: var(--accent); color: #000; border: none; width: 80px;}
-    #playBtn.active { background: var(--danger); color: #fff; }
-    #recBtn { background: var(--panel); color: var(--record); border-color: var(--record); width: 140px; }
-    #recBtn.recording { background: var(--record); color: #fff; border: none; animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    /* ─── START OVERLAY ─── */
+    #start-overlay {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      z-index: 9999;
+      gap: 8px;
+    }
+    .overlay-logo {
+      font-family: var(--mono);
+      font-size: 28px;
+      letter-spacing: 6px;
+      color: var(--accent);
+      text-shadow: 0 0 40px var(--accent-glow);
+      margin-bottom: 4px;
+    }
+    .overlay-sub {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 4px;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+    }
+    .overlay-bar {
+      width: 220px; height: 2px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .overlay-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.4s ease;
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+    #overlay-status {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+      margin-bottom: 20px;
+    }
+    .start-btn {
+      background: var(--border);
+      color: var(--text-muted);
+      border: 1px solid var(--border-highlight);
+      padding: 12px 36px;
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 3px;
+      border-radius: 3px;
+      cursor: not-allowed;
+      transition: all 0.2s;
+    }
+    .start-btn.ready {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .start-btn.ready:hover { transform: scale(1.04); box-shadow: 0 0 30px var(--accent-glow); }
 
-    .control-group { display: flex; align-items: center; gap: 8px; background: var(--bg); padding: 4px 12px; border-radius: 4px; border: 1px solid var(--border); }
-    .control-group label { font-size: 10px; color: var(--text-muted); font-weight: bold; letter-spacing: 1px;}
-    input[type="range"] { accent-color: var(--accent); height: 4px; background: var(--border); border-radius: 2px; outline: none; cursor: pointer; }
+    /* ─── TOP BAR ─── */
+    .top-bar {
+      background: var(--panel);
+      width: 100%;
+      border-bottom: 1px solid var(--border);
+      padding: 0 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 44px;
+      flex-shrink: 0;
+    }
+    .nav-group { display: flex; align-items: center; gap: 8px; }
+    .project-name {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--accent);
+      letter-spacing: 1px;
+      margin-right: 8px;
+    }
+    .top-btn {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 5px 12px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      transition: all 0.15s;
+    }
+    .top-btn:hover { background: var(--panel-hover); color: var(--text); border-color: var(--border-highlight); }
+    .top-btn.accent { border-color: var(--accent); color: var(--accent); }
+    .top-btn.accent:hover { background: var(--accent-dim); }
 
-    .channel-rack-container { width: 100%; height: calc(100vh - 110px); background: var(--bg); overflow-x: auto; overflow-y: auto; padding: 20px; box-sizing: border-box;}
-    .channel-rack-container::-webkit-scrollbar { width: 10px; height: 10px; }
-    .channel-rack-container::-webkit-scrollbar-thumb { background: var(--border-highlight); border-radius: 5px; }
+    #projectLoader {
+      background: var(--panel);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 5px 8px;
+      border-radius: 3px;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      outline: none;
+    }
+    #currentUserDisplay {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+    }
 
-    .channel-rack { display: inline-block; padding-bottom: 50px; }
-    .row { display: flex; align-items: stretch; margin-bottom: 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; border-left: 5px solid var(--u-color, var(--border)); }
+    /* ─── TRANSPORT ─── */
+    .transport {
+      background: var(--panel-light);
+      width: 100%;
+      padding: 0 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      height: 52px;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      flex-shrink: 0;
+    }
+    .status-area {
+      position: absolute; left: 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    #status {
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-muted);
+      padding: 3px 8px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      letter-spacing: 2px;
+    }
+    #status.live { color: var(--success); border-color: var(--success); text-shadow: 0 0 8px var(--success); }
+    #users { font-family: var(--mono); font-size: 9px; color: var(--text-muted); letter-spacing: 1px; }
 
-    .track-controls { position: sticky; left: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; background: var(--panel); padding: 10px 15px; z-index: 10; border-right: 2px solid var(--border); width: 280px; box-sizing: border-box;}
-    .track-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-    .track-author { font-size: 9px; color: var(--u-color, var(--text-muted)); font-weight: bold; text-transform: uppercase;}
-    .delete-btn { background: transparent; color: var(--text-muted); border: none; cursor: pointer; font-size: 14px;}
-    .delete-btn:hover { color: var(--danger); }
-    
-    .track-row { display: flex; align-items: center; gap: 5px; width: 100%; margin-top: 2px;}
-    .inst-select { flex: 1; font-size: 11px; height: 28px;}
-    .note-select { width: 55px; font-size: 11px; height: 28px;}
-    .speed-select { width: 60px; font-size: 11px; height: 28px;}
-    .vol-container { display: flex; align-items: center; gap: 5px; flex: 1; background: var(--bg); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border);}
-    .vol-slider { width: 100%; }
+    /* transport buttons */
+    .t-btn {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      transition: all 0.15s;
+      outline: none;
+    }
+    .t-btn:hover { background: var(--panel-hover); border-color: var(--border-highlight); }
+    #playBtn {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+      font-weight: 700;
+      width: 82px;
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+    #playBtn:hover { box-shadow: 0 0 20px var(--accent-glow); }
+    #playBtn.playing { background: #fff; color: #000; border-color: #fff; }
+    #recBtn {
+      color: var(--record);
+      border-color: var(--record);
+      min-width: 130px;
+    }
+    #recBtn.recording {
+      background: var(--record);
+      color: #fff;
+      border-color: var(--record);
+      box-shadow: 0 0 14px var(--record-glow);
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
 
-    .steps { display: flex; gap: 2px; padding: 10px 20px;}
-    .step-btn { width: 32px; height: 100%; min-height: 60px; border-radius: 3px; border: 1px solid transparent; padding: 0; flex-shrink: 0; cursor: pointer; transition: background 0.1s;}
+    .ctrl-group {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--bg);
+      padding: 5px 10px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+    }
+    .ctrl-label { font-family: var(--mono); font-size: 9px; color: var(--text-dim); letter-spacing: 2px; }
+    .ctrl-val { font-family: var(--mono); font-size: 11px; color: var(--text); width: 30px; }
+    select.ctrl-sel {
+      background: transparent;
+      color: var(--text);
+      border: none;
+      font-family: var(--mono);
+      font-size: 10px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="range"] {
+      accent-color: var(--accent);
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+      width: 90px;
+    }
+
+    /* ─── PATTERNS BAR ─── */
+    .patterns-bar {
+      width: 100%;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 6px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      overflow-x: auto;
+    }
+    .patterns-bar::-webkit-scrollbar { height: 4px; }
+    .patterns-bar::-webkit-scrollbar-thumb { background: var(--border-highlight); border-radius: 2px; }
+    .pat-label { font-family: var(--mono); font-size: 9px; color: var(--text-dim); letter-spacing: 2px; margin-right: 4px; white-space: nowrap; }
+    .pat-btn {
+      background: var(--panel);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 4px 14px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 1px;
+      transition: all 0.15s;
+      white-space: nowrap;
+      outline: none;
+    }
+    .pat-btn:hover { background: var(--panel-hover); border-color: var(--border-highlight); }
+    .pat-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+    .pat-btn.add-pat {
+      border-style: dashed;
+      color: var(--text-dim);
+    }
+    .pat-btn.add-pat:hover { border-color: var(--accent); color: var(--accent); }
+    .pat-rename-input {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--accent);
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-family: var(--mono);
+      font-size: 10px;
+      outline: none;
+      width: 100px;
+    }
+
+    /* ─── CHANNEL RACK ─── */
+    .channel-rack-container {
+      width: 100%;
+      flex: 1;
+      background: var(--bg);
+      overflow-x: auto;
+      overflow-y: auto;
+      padding: 12px 16px 60px;
+    }
+    .channel-rack-container::-webkit-scrollbar { width: 8px; height: 8px; }
+    .channel-rack-container::-webkit-scrollbar-track { background: transparent; }
+    .channel-rack-container::-webkit-scrollbar-thumb { background: var(--border-highlight); border-radius: 4px; }
+
+    .channel-rack { display: inline-block; min-width: 100%; }
+
+    /* ─── TRACK ROW ─── */
+    .row {
+      display: flex;
+      align-items: stretch;
+      margin-bottom: 4px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      transition: border-color 0.15s;
+      min-width: max-content;
+    }
+    .row:hover { border-color: var(--border-highlight); }
+
+    .track-controls {
+      position: sticky; left: 0;
+      display: flex; flex-direction: column;
+      justify-content: center; gap: 5px;
+      background: var(--panel);
+      padding: 8px 12px;
+      z-index: 10;
+      border-right: 1px solid var(--border);
+      width: 300px;
+      flex-shrink: 0;
+      border-radius: 5px 0 0 5px;
+    }
+
+    .track-header {
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .track-author {
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .track-actions { display: flex; align-items: center; gap: 4px; }
+    .icon-btn {
+      background: transparent;
+      color: var(--text-dim);
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      padding: 2px 4px;
+      border-radius: 3px;
+      line-height: 1;
+      transition: all 0.1s;
+    }
+    .icon-btn:hover { color: var(--text); background: var(--panel-hover); }
+    .icon-btn.danger:hover { color: var(--danger); }
+    .icon-btn.solo-btn.soloed { color: var(--warn); }
+    .icon-btn.mute-btn.muted { color: var(--danger); }
+
+    .track-row-inner { display: flex; align-items: center; gap: 5px; width: 100%; }
+
+    .inst-select {
+      flex: 1;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 4px 6px;
+      border-radius: 3px;
+      font-family: var(--sans);
+      font-size: 11px;
+      height: 26px;
+      outline: none;
+      cursor: pointer;
+    }
+    .inst-select:focus { border-color: var(--accent); }
+
+    .mini-sel {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 3px 4px;
+      border-radius: 3px;
+      font-family: var(--mono);
+      font-size: 9px;
+      height: 26px;
+      outline: none;
+      cursor: pointer;
+    }
+    .mini-sel:focus { border-color: var(--accent); }
+
+    .vol-wrap {
+      display: flex; align-items: center; gap: 5px;
+      background: var(--bg);
+      padding: 3px 8px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      flex: 1;
+    }
+    .vol-wrap label { font-family: var(--mono); font-size: 8px; color: var(--text-dim); letter-spacing: 1.5px; }
+    .vol-wrap input[type="range"] { width: 100%; }
+    .vol-val { font-family: var(--mono); font-size: 9px; color: var(--text-muted); width: 28px; text-align: right; }
+
+    .sample-btn {
+      background: var(--bg);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 3px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 12px;
+      height: 26px;
+      transition: all 0.15s;
+    }
+    .sample-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .sample-btn.loaded { border-color: var(--success); color: var(--success); }
+
+    /* ─── STEPS ─── */
+    .steps { display: flex; gap: 2px; padding: 8px 14px; align-items: center; }
+    .step-btn {
+      width: 30px; height: 50px;
+      border-radius: 3px;
+      border: 1px solid transparent;
+      padding: 0; flex-shrink: 0;
+      cursor: pointer;
+      transition: background 0.07s, border-color 0.07s;
+      position: relative;
+    }
     .step-btn.beat-0 { background: var(--step-off-1); }
     .step-btn.beat-1 { background: var(--step-off-2); }
-    .step-btn.active { background: var(--u-color, var(--step-on)) !important; box-shadow: 0 0 10px var(--u-color); }
-    .step-btn.playing { border: 2px solid #fff; }
-    
-    .add-track-btn { margin-top: 10px; background: transparent; border: 1px dashed var(--border-highlight); color: var(--text-muted); padding: 15px; font-size: 14px; width: 280px; cursor: pointer; }
+    .step-btn.on { border-color: transparent !important; }
+    .step-btn.active-head { border-color: var(--step-active-border) !important; }
+    .step-btn:hover { filter: brightness(1.3); }
+
+    /* ─── ADD TRACK ─── */
+    .add-track-btn {
+      margin-top: 8px;
+      background: transparent;
+      border: 1px dashed var(--border-highlight);
+      color: var(--text-dim);
+      padding: 12px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 2px;
+      width: 300px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.15s;
+    }
     .add-track-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ─── TOAST ─── */
+    #toast-container {
+      position: fixed; bottom: 20px; right: 20px;
+      display: flex; flex-direction: column; gap: 8px;
+      z-index: 9998; pointer-events: none;
+    }
+    .toast {
+      background: var(--panel-light);
+      border: 1px solid var(--border-highlight);
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 1px;
+      animation: toastIn 0.2s ease;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .toast.success { border-color: var(--success); color: var(--success); }
+    .toast.error { border-color: var(--danger); color: var(--danger); }
+    @keyframes toastIn { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
+
+    /* ─── BEAT GROUP SEPARATOR ─── */
+    .step-group-gap { width: 6px; flex-shrink: 0; }
+
+    /* ─── SCROLLBAR ─── */
+    select::-webkit-scrollbar { width: 6px; }
+    select::-webkit-scrollbar-thumb { background: var(--border-highlight); border-radius: 3px; }
   </style>
 </head>
 <body>
 
+<!-- ══════════ START OVERLAY ══════════ -->
 <div id="start-overlay">
-  <h1>DISCORD STUDIO PRO</h1>
-  <button id="start-btn" class="start-btn" disabled>CONNECTING TO SERVER...</button>
+  <div class="overlay-logo">DISCORD STUDIO PRO</div>
+  <div class="overlay-sub">COLLABORATIVE BEAT MAKER</div>
+  <div class="overlay-bar"><div class="overlay-bar-fill" id="overlay-bar-fill"></div></div>
+  <div id="overlay-status">INITIALIZING...</div>
+  <button id="start-btn" class="start-btn" disabled>CONNECTING...</button>
 </div>
 
+<!-- ══════════ TOP BAR ══════════ -->
 <div class="top-bar">
   <div class="nav-group">
     <span class="project-name" id="projectNameDisplay">Untitled Session</span>
-    <button onclick="window.saveProject()">SAVE PROJECT</button>
-    <select id="projectLoader" onchange="window.loadProject(this.value)"><option value="">LOAD PROJECT...</option></select>
+    <button class="top-btn accent" onclick="window.saveProject()">SAVE</button>
+    <button class="top-btn" onclick="window.renameProject()">RENAME</button>
+    <select id="projectLoader" onchange="window.loadProject(this.value)">
+      <option value="">LOAD PROJECT...</option>
+    </select>
   </div>
-  <div id="currentUserDisplay" style="font-size: 12px; color: var(--text-muted);">Authenticating...</div>
+  <div id="currentUserDisplay">Authenticating...</div>
 </div>
 
+<!-- ══════════ TRANSPORT ══════════ -->
 <div class="transport">
   <div class="status-area">
     <div id="status">OFFLINE</div>
-    <div id="users">Users: 1</div>
+    <div id="users">● 1</div>
   </div>
-  <button id="recBtn" onclick="window.toggleRecord()">EXPORT AUDIO</button>
-  <button id="playBtn" onclick="window.togglePlay()">PLAY</button>
-  <button onclick="window.clearGrid()">CLEAR</button>
-  <div class="control-group"><label>LEN</label><select id="stepSelect" onchange="window.changeSteps(this.value)"><option value="16">16</option><option value="32">32</option><option value="64">64</option></select></div>
-  <div class="control-group"><label>BPM</label><input id="bpm" type="range" min="60" max="180" value="120" oninput="window.updateBPMUI(this.value)" onchange="window.sendBPM(this.value)"/><span id="bpmVal" style="width: 30px; font-family: monospace;">120</span></div>
+  <button id="recBtn" class="t-btn" onclick="window.toggleRecord()">⬤ EXPORT AUDIO</button>
+  <button id="playBtn" class="t-btn" onclick="window.togglePlay()">▶ PLAY</button>
+  <button class="t-btn" onclick="window.stopAll()">■ STOP</button>
+  <button class="t-btn" onclick="window.clearGrid()">✕ CLEAR</button>
+  <div class="ctrl-group">
+    <span class="ctrl-label">STEPS</span>
+    <select class="ctrl-sel" id="stepSelect" onchange="window.changeSteps(this.value)">
+      <option value="16">16</option>
+      <option value="32">32</option>
+      <option value="64">64</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <span class="ctrl-label">BPM</span>
+    <input id="bpm" type="range" min="60" max="180" value="120"
+      oninput="window.updateBPMUI(this.value)"
+      onchange="window.sendBPM(this.value)"/>
+    <span class="ctrl-val" id="bpmVal">120</span>
+  </div>
 </div>
 
+<!-- ══════════ PATTERNS BAR ══════════ -->
+<div class="patterns-bar">
+  <span class="pat-label">PATTERNS:</span>
+  <div id="patterns-list" style="display:flex;gap:6px;align-items:center;"></div>
+  <button class="pat-btn add-pat" onclick="window.addPattern()">+ NEW BEAT</button>
+</div>
+
+<!-- ══════════ CHANNEL RACK ══════════ -->
 <div class="channel-rack-container">
   <div id="rack" class="channel-rack"></div>
 </div>
 
+<!-- ══════════ TOAST CONTAINER ══════════ -->
+<div id="toast-container"></div>
+
+<!-- ══════════ MAIN SCRIPT ══════════ -->
 <script type="module">
+
+// ─── NOTE: When deploying inside Discord, set up URL Mappings in the Discord
+//     Developer Portal so ALL external URLs go through the proxy:
+//
+//   PREFIX /        → your-frontend-host.com          (frontend)
+//   PREFIX /socket  → beat-backend-5nnu.onrender.com  (backend)
+//
+//   Then set BACKEND_URL below to "" (empty) and use relative paths,
+//   and set SOCKET_PATH to "/socket/socket.io"
+// ──────────────────────────────────────────────────────────────────
+
 import { DiscordSDK, patchUrlMappings } from "https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.2.0/+esm";
 
-const BACKEND_URL = "https://beat-backend-5nnu.onrender.com"; 
-let socket, discordSdk, recorder, masterReverb;
-let localUser = { name: "Producer", color: "#00d4ff" };
-let currentTick = 0, isPlaying = false, isRecording = false;
-let buttons = {}, synthInstances = {}, state = { projectName: "Untitled", bpm: 120, steps: 16, channels: [] };
+// ─── CONFIG ───────────────────────────────────────────────────────
+const BACKEND_URL    = "https://beat-backend-5nnu.onrender.com";
+const SOCKET_PATH    = "/socket.io";  // change to "/socket/socket.io" when using proxy mappings
+const IS_IN_DISCORD  = new URLSearchParams(window.location.search).has("frame_id");
 
-const NOTES = ["C1","D1","E1","F1","G1","A1","B1", "C2","D2","E2","F2","G2","A2","B2", "C3","D3","E3","F3","G3","A3","B3", "C4","D4","E4","F4","G4","A4","B4", "C5","D5","E5","F5","G5","A5","B5"];
+// ─── STATE ────────────────────────────────────────────────────────
+let socket, discordSdk, recorder, masterReverb, masterGain;
+let discordUsername = "Producer";
+let discordUserId   = null;
+let currentStep32   = 0;
+let isPlaying       = false;
+let isRecording     = false;
+let soloedTrack     = null;   // track id or null
+let mutedTracks     = new Set();
+let customSamples   = {};     // { trackId: { url, name } }
 
-// --- 150+ SYNTH ENGINE (UNTOUCHED) ---
-const p = (type, opts) => new Tone.PolySynth(type, opts);
-const m = (opts) => new Tone.MembraneSynth(opts);
-const n = (opts) => new Tone.NoiseSynth(opts);
+let buttons   = {};   // { channelId: [btn, ...] }
+let synthInst = {};   // { channelId: { type, node } }
+
+let state = {
+  projectName : "Untitled Session",
+  bpm         : 120,
+  steps       : 16,
+  channels    : [],
+  patterns    : [{ id: "pat_1", name: "Beat 1", channels: [] }],
+  activePattern: "pat_1"
+};
+
+// ─── COLOR MAP ────────────────────────────────────────────────────
+const USER_COLORS = {};
+function getUserColor(username) {
+  if (!USER_COLORS[username]) {
+    let hash = 0;
+    for (const c of username) hash = (hash << 5) - hash + c.charCodeAt(0);
+    const hue = Math.abs(hash) % 360;
+    USER_COLORS[username] = `hsl(${hue},75%,62%)`;
+  }
+  return USER_COLORS[username];
+}
+
+// ─── NOTES ───────────────────────────────────────────────────────
+const NOTES = [];
+for (const oct of [1,2,3,4,5]) {
+  for (const n of ["C","D","E","F","G","A","B"]) NOTES.push(n + oct);
+}
+
+// ─── SYNTH LIBRARY ───────────────────────────────────────────────
+const p  = (T, o) => new Tone.PolySynth(T, o);
+const ms = (o)    => new Tone.MembraneSynth(o);
+const ns = (o)    => new Tone.NoiseSynth(o);
 
 const SYNTH_LIBRARY = {
   "DRUMS: Kicks": {
-    "Kick - 808 Trap": () => m({ pitchDecay: 0.005, octaves: 2, envelope: { attack: 0.01, decay: 0.8, sustain: 0.1 } }),
-    "Kick - House": () => m({ pitchDecay: 0.1, octaves: 5 }),
-    "Kick - Deep Sub": () => m({ pitchDecay: 0.05, octaves: 2 }),
-    "Kick - Techno": () => m({ pitchDecay: 0.08, octaves: 4 })
+    "Kick - 808 Trap"  : () => ms({ pitchDecay: 0.005, octaves: 2, envelope: { attack: 0.01, decay: 0.8, sustain: 0.1 } }),
+    "Kick - House"     : () => ms({ pitchDecay: 0.1, octaves: 5 }),
+    "Kick - Deep Sub"  : () => ms({ pitchDecay: 0.05, octaves: 2 }),
+    "Kick - Techno"    : () => ms({ pitchDecay: 0.08, octaves: 4 }),
   },
   "DRUMS: Snares": {
-    "Snare - Trap": () => n({ noise: { type: 'pink' }, envelope: { attack: 0.001, decay: 0.1 } }),
-    "Snare - Acoustic": () => n({ noise: { type: 'white' }, envelope: { attack: 0.005, decay: 0.2 } }),
-    "Clap - Studio": () => n({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.3 } }),
-    "Clap - Wide": () => n({ noise: { type: 'pink' }, envelope: { attack: 0.01, decay: 0.5 } })
+    "Snare - Trap"     : () => ns({ noise: { type: "pink"  }, envelope: { attack: 0.001, decay: 0.1 } }),
+    "Snare - Acoustic" : () => ns({ noise: { type: "white" }, envelope: { attack: 0.005, decay: 0.2 } }),
+    "Clap - Studio"    : () => ns({ noise: { type: "white" }, envelope: { attack: 0.001, decay: 0.3 } }),
+    "Clap - Wide"      : () => ns({ noise: { type: "pink"  }, envelope: { attack: 0.01,  decay: 0.5 } }),
   },
   "DRUMS: Percussion": {
-    "Perc - Closed Hat": () => new Tone.MetalSynth({ frequency: 250, envelope: { decay: 0.05 } }),
-    "Perc - Open Hat": () => new Tone.MetalSynth({ frequency: 200, envelope: { decay: 0.3 } }),
-    "Perc - Cowbell": () => new Tone.FMSynth({ harmonicity: 1.2, modulationIndex: 2.5, oscillator: { type: "square" } }),
-    "Perc - Rimshot": () => m({ pitchDecay: 0.01, octaves: 2, envelope: { attack: 0.001, decay: 0.05 } })
+    "Hi-Hat - Closed"  : () => new Tone.MetalSynth({ frequency: 400, envelope: { decay: 0.04 } }),
+    "Hi-Hat - Open"    : () => new Tone.MetalSynth({ frequency: 250, envelope: { decay: 0.35 } }),
+    "Cowbell"          : () => new Tone.FMSynth({ harmonicity: 1.2, modulationIndex: 2.5, oscillator: { type: "square" } }),
+    "Rimshot"          : () => ms({ pitchDecay: 0.01, octaves: 2, envelope: { attack: 0.001, decay: 0.05 } }),
+    "Shaker"           : () => ns({ noise: { type: "brown" }, envelope: { attack: 0.005, decay: 0.06 } }),
   },
   "BASSES": {
-    "Bass - Sub Sine": () => p(Tone.Synth, { oscillator: { type: "sine" } }),
-    "Bass - Acid Saw": () => p(Tone.MonoSynth, { oscillator: { type: "sawtooth" }, filter: { Q: 4, type: "lowpass" } }),
-    "Bass - Deep Square": () => p(Tone.Synth, { oscillator: { type: "square" } }),
-    "Bass - Reese Saw": () => p(Tone.Synth, { oscillator: { type: "fatsawtooth", count: 3 } })
+    "Bass - Sub Sine"  : () => p(Tone.Synth, { oscillator: { type: "sine" } }),
+    "Bass - Acid Saw"  : () => p(Tone.MonoSynth, { oscillator: { type: "sawtooth" }, filter: { Q: 4, type: "lowpass" } }),
+    "Bass - Deep Sqr"  : () => p(Tone.Synth, { oscillator: { type: "square" } }),
+    "Bass - Reese"     : () => p(Tone.Synth, { oscillator: { type: "fatsawtooth", count: 3 } }),
+    "Bass - Pluck"     : () => p(Tone.PluckSynth, {}),
   },
   "KEYS & PIANOS": {
     "Keys - Grand Piano": () => p(Tone.Synth, { oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 1.5, release: 1 } }),
-    "Keys - Electric Rhodes": () => p(Tone.FMSynth, { harmonicity: 2, modulationIndex: 1.5 }),
-    "Keys - FM Tine": () => p(Tone.FMSynth, { harmonicity: 1, modulationIndex: 1 }),
-    "Organ - Church": () => p(Tone.Synth, { oscillator: { type: "fatsquare", count: 3 } })
+    "Keys - Electric"   : () => p(Tone.FMSynth, { harmonicity: 2, modulationIndex: 1.5 }),
+    "Keys - FM Tine"    : () => p(Tone.FMSynth, { harmonicity: 1, modulationIndex: 1 }),
+    "Organ - Church"    : () => p(Tone.Synth, { oscillator: { type: "fatsquare", count: 3 } }),
+    "Harpsichord"       : () => p(Tone.PluckSynth, { attackNoise: 2, dampening: 4000, resonance: 0.95 }),
   },
   "STRINGS & PADS": {
     "Strings - Ensemble": () => p(Tone.Synth, { oscillator: { type: "fatsawtooth", count: 5 }, envelope: { attack: 0.4, release: 1 } }),
-    "Pad - Dream Sine": () => p(Tone.Synth, { oscillator: { type: "fatsine", spread: 30 }, envelope: { attack: 1, release: 2 } }),
-    "Pad - Dark Saw": () => p(Tone.Synth, { oscillator: { type: "fatsawtooth", spread: 20 }, envelope: { attack: 1.5, release: 2 } }),
-    "Choir - FM Voices": () => p(Tone.FMSynth, { harmonicity: 0.5, modulationIndex: 5 })
+    "Pad - Dream Sine"  : () => p(Tone.Synth, { oscillator: { type: "fatsine", spread: 30 }, envelope: { attack: 1, release: 2 } }),
+    "Pad - Dark Saw"    : () => p(Tone.Synth, { oscillator: { type: "fatsawtooth", spread: 20 }, envelope: { attack: 1.5, release: 2 } }),
+    "Choir - FM"        : () => p(Tone.FMSynth, { harmonicity: 0.5, modulationIndex: 5 }),
+    "Atmosphere"        : () => p(Tone.AMSynth, { harmonicity: 0.5, envelope: { attack: 2, release: 3 } }),
   },
   "LEADS & SYNTHS": {
-    "Lead - Theremin": () => p(Tone.Synth, { oscillator: { type: "sine" }, portamento: 0.2 }),
-    "Lead - Fat Trance": () => p(Tone.Synth, { oscillator: { type: "fatsawtooth", count: 3, spread: 15 } }),
-    "8-Bit - Pulse 25%": () => p(Tone.Synth, { oscillator: { type: "pulse", width: 0.25 } }),
-    "FX - Sub Drop": () => new Tone.MembraneSynth({ pitchDecay: 0.5, octaves: 10 })
+    "Lead - Theremin"   : () => p(Tone.Synth, { oscillator: { type: "sine" }, portamento: 0.2 }),
+    "Lead - Fat Trance" : () => p(Tone.Synth, { oscillator: { type: "fatsawtooth", count: 3, spread: 15 } }),
+    "8-Bit - Pulse"     : () => p(Tone.Synth, { oscillator: { type: "pulse", width: 0.25 } }),
+    "FX - Sub Drop"     : () => new Tone.MembraneSynth({ pitchDecay: 0.5, octaves: 10 }),
+    "Lead - AM Buzz"    : () => p(Tone.AMSynth, { harmonicity: 2 }),
   },
-  "CUSTOM": {
-      "Custom Sample": (url) => new Tone.Sampler({ urls: { C4: url } })
-  }
 };
 
-// --- BOOTSTRAP SEQUENCE ---
+const CUSTOM_SAMPLE_KEY = "__CUSTOM_SAMPLE__";
+
+// ─── TOAST ────────────────────────────────────────────────────────
+function toast(msg, type = "") {
+  const el = document.createElement("div");
+  el.className = "toast" + (type ? " " + type : "");
+  el.textContent = msg;
+  document.getElementById("toast-container").appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+// ─── OVERLAY HELPERS ─────────────────────────────────────────────
+function setOverlayStatus(msg, pct) {
+  document.getElementById("overlay-status").textContent = msg;
+  if (pct !== undefined) document.getElementById("overlay-bar-fill").style.width = pct + "%";
+}
+
+// ─── BOOT SEQUENCE ───────────────────────────────────────────────
 async function boot() {
   const btn = document.getElementById("start-btn");
+  setOverlayStatus("CONNECTING TO SERVER...", 10);
+
+  // Patch URL mappings when inside Discord proxy
+  if (IS_IN_DISCORD) {
+    patchUrlMappings([
+      { prefix: "/socket", target: "beat-backend-5nnu.onrender.com" },
+    ]);
+  }
+
+  // Dynamically load socket.io from backend to avoid CSP issues
+  await new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = BACKEND_URL + "/socket.io/socket.io.js";
+    s.onload = res;
+    s.onerror = () => {
+      // Fallback to CDN if direct load fails (dev mode)
+      const s2 = document.createElement("script");
+      s2.src = "https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js";
+      s2.onload = res; s2.onerror = rej;
+      document.head.appendChild(s2);
+    };
+    document.head.appendChild(s);
+  });
+
+  setOverlayStatus("FETCHING CONFIG...", 30);
+
   try {
-    // DOCS COMPLIANCE: URL Mapping to prevent "Server not found"
-    patchUrlMappings([{ prefix: '/api', target: 'beat-backend-5nnu.onrender.com' }]);
+    const cfgRes = await fetch(`${BACKEND_URL}/api/config`);
+    const { clientId } = await cfgRes.json();
 
-    discordSdk = new DiscordSDK("YOUR_CLIENT_ID"); // Set your Client ID
-    await discordSdk.ready();
-
-    const { code } = await discordSdk.commands.authorize({
-      client_id: "YOUR_CLIENT_ID", response_type: "code", prompt: "none", scope: ["identify", "guilds"] 
+    setOverlayStatus("CONNECTING SOCKET...", 50);
+    socket = io(BACKEND_URL, {
+      path: SOCKET_PATH,
+      transports: ["websocket"],
     });
+    setupSocket();
 
-    const res = await fetch(`/api/token`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({code}) });
-    const { access_token } = await res.json();
-    const auth = await discordSdk.commands.authenticate({ access_token });
+    setOverlayStatus("DISCORD AUTH...", 70);
+    if (IS_IN_DISCORD) {
+      discordSdk = new DiscordSDK(clientId);
+      await discordSdk.ready();
+      const { code } = await discordSdk.commands.authorize({
+        client_id: clientId,
+        response_type: "code",
+        prompt: "none",
+        scope: ["identify"],
+      });
+      const tokenRes = await fetch(`${BACKEND_URL}/api/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const { access_token } = await tokenRes.json();
+      const auth = await discordSdk.commands.authenticate({ access_token });
+      discordUsername = auth.user.global_name || auth.user.username;
+      discordUserId   = auth.user.id;
+    }
+  } catch (e) {
+    console.warn("Boot error (may be offline/dev mode):", e);
+  }
 
-    localUser.name = auth.user.global_name || auth.user.username;
-    localUser.color = auth.user.accent_color ? `#${auth.user.accent_color.toString(16)}` : `hsl(${Math.random()*360}, 70%, 50%)`;
-  } catch(e) { console.warn("Sandbox/Local Mode Active"); }
-  
-  btn.innerText = "ENTER STUDIO";
+  setOverlayStatus("READY", 100);
+  btn.textContent = "ENTER STUDIO";
   btn.classList.add("ready");
   btn.disabled = false;
   btn.onclick = window.initAudio;
+  document.getElementById("status").textContent = "CONNECTED";
+  document.getElementById("status").classList.add("live");
 }
 
+// ─── INIT AUDIO ──────────────────────────────────────────────────
 window.initAudio = async () => {
   await Tone.start();
-  masterReverb = new Tone.Reverb({ decay: 2, wet: 0.15 }).toDestination();
+  masterGain  = new Tone.Gain(0.85).toDestination();
+  masterReverb = new Tone.Reverb({ decay: 2, wet: 0.15 });
+  masterReverb.connect(masterGain);
+
   recorder = new Tone.Recorder();
-  Tone.Destination.connect(recorder);
+  masterGain.connect(recorder);
+
   document.getElementById("start-overlay").style.display = "none";
-  document.getElementById("currentUserDisplay").innerText = `Identity: ${localUser.name}`;
-  setupSocket();
+  document.getElementById("currentUserDisplay").textContent = "● " + discordUsername;
+  document.getElementById("currentUserDisplay").style.color = getUserColor(discordUsername);
+
+  startTimingLoop();
 };
 
-function setupSocket() {
-  const instanceId = discordSdk?.instanceId || "default-room";
-  socket = io(BACKEND_URL, { query: { instanceId } });
-
-  socket.on("initState", (s) => { state = s; buildGrid(); window.updateBPMUI(s.bpm); });
-  socket.on("stateUpdate", (s) => { state = s; buildGrid(); });
-  socket.on("stepToggled", ({ channelId, stepIndex, val }) => {
-    const ch = state.channels.find(c => c.id === channelId);
-    if(ch) { 
-        ch.pattern[stepIndex] = val; 
-        const btn = document.querySelector(`[data-tid="${channelId}"][data-idx="${stepIndex}"]`);
-        if(btn) btn.classList.toggle("active", val);
-    }
-  });
-  socket.on("playUpdate", (p) => { isPlaying = p; isPlaying ? Tone.Transport.start() : Tone.Transport.stop(); document.getElementById("playBtn").innerText = isPlaying ? "PAUSE" : "PLAY"; document.getElementById("playBtn").classList.toggle("active", isPlaying); });
-  socket.on("bpmUpdate", (v) => window.updateBPMUI(v));
-  socket.on("projectList", (l) => {
-    const s = document.getElementById("projectLoader"); s.innerHTML = '<option value="">LOAD PROJECT...</option>';
-    l.forEach(p => s.innerHTML += `<option value="${p}">${p}</option>`);
-  });
-  socket.on("trackParamUpdated", ({ channelId, key, value }) => {
-    const ch = state.channels.find(c => c.id === channelId);
-    if(!ch) return; ch[key] = value;
-    if(['inst', 'speed', 'note', 'sampleUrl'].includes(key)) buildGrid(); 
-    else if(key === "vol" && synthInstances[channelId]) synthInstances[channelId].volume.value = value;
-  });
-  socket.on("userCount", (c) => document.getElementById("users").innerText = `Users: ${c}`);
-  
-  startTimingLoop();
-}
-
+// ─── TIMING LOOP ─────────────────────────────────────────────────
 function startTimingLoop() {
   Tone.Transport.scheduleRepeat((time) => {
     state.channels.forEach(ch => {
-      // PER-TRACK BPM: Logic multiplier
-      const stepIndex = Math.floor(currentTick * (ch.trackSpeed || 1)) % state.steps;
-      if (ch.pattern[stepIndex] && synthInstances[ch.id]) {
-          try { synthInstances[ch.id].triggerAttackRelease(ch.note || "C4", "16n", time); } catch(e) {}
+      if (mutedTracks.has(ch.id)) return;
+      if (soloedTrack && soloedTrack !== ch.id) return;
+
+      // bpmMult: 0.5 = every 4 ticks, 1 = every 2 ticks, 2 = every 1 tick
+      const divisor = Math.round(2 / (ch.bpmMult || 1));
+      if (currentStep32 % divisor === 0) {
+        const stepIndex = Math.floor(currentStep32 / divisor) % state.steps;
+        if (ch.pattern[stepIndex]) {
+          const inst = synthInst[ch.id];
+          if (!inst) return;
+          try {
+            if (inst.isPlayer) {
+              inst.node.start(time);
+            } else {
+              inst.node.triggerAttackRelease(ch.note || "C4", "16n", time);
+            }
+          } catch (e) {}
+        }
       }
-      // Visual Playhead
-      Tone.Draw.schedule(() => {
-        const btns = document.querySelectorAll(`[data-tid="${ch.id}"]`);
-        btns.forEach((btn, i) => btn.classList.toggle("playing", i === stepIndex));
-      }, time);
     });
-    currentTick++;
-  }, "16n");
+    Tone.Draw.schedule(() => updatePlayhead(currentStep32), time);
+    currentStep32++;
+  }, "32n");
 }
 
+// ─── SYNTH MANAGEMENT ────────────────────────────────────────────
+function syncSynths() {
+  if (!masterReverb) return;
+  state.channels.forEach(ch => {
+    const existing = synthInst[ch.id];
+    const wantsCustom = ch.inst === CUSTOM_SAMPLE_KEY;
+
+    // If channel wants custom sample and we have one loaded, keep it
+    if (wantsCustom && existing && existing.isPlayer) {
+      if (existing.node.volume) existing.node.volume.value = ch.vol;
+      return;
+    }
+
+    if (!existing || existing.type !== ch.inst) {
+      if (existing) existing.node.dispose();
+
+      let gen = SYNTH_LIBRARY["KEYS & PIANOS"]["Keys - Grand Piano"];
+      for (const cat in SYNTH_LIBRARY) {
+        if (SYNTH_LIBRARY[cat][ch.inst]) { gen = SYNTH_LIBRARY[cat][ch.inst]; break; }
+      }
+      const node = gen();
+      node.connect(masterReverb);
+      synthInst[ch.id] = { type: ch.inst, node, isPlayer: false };
+    }
+
+    if (synthInst[ch.id].node.volume) {
+      synthInst[ch.id].node.volume.value = ch.vol;
+    }
+  });
+
+  // Clean up removed tracks
+  for (const id of Object.keys(synthInst)) {
+    if (!state.channels.find(c => c.id === id)) {
+      synthInst[id].node.dispose();
+      delete synthInst[id];
+    }
+  }
+}
+
+// ─── BUILD GRID ──────────────────────────────────────────────────
 function buildGrid() {
   const rack = document.getElementById("rack");
-  rack.innerHTML = ""; 
-  document.getElementById("projectNameDisplay").innerText = state.projectName;
+  rack.innerHTML = "";
+  buttons = {};
+  syncSynths();
+  document.getElementById("projectNameDisplay").textContent = state.projectName;
+  buildPatternTabs();
 
   state.channels.forEach(ch => {
-    // SYNC INSTRUMENT
-    if (synthInstances[ch.id]) synthInstances[ch.id].dispose();
-    if (ch.inst === "Custom Sample" && ch.sampleUrl) {
-        synthInstances[ch.id] = new Tone.Sampler({ urls: { C4: ch.sampleUrl } }).connect(masterReverb);
-    } else {
-        let gen = SYNTH_LIBRARY["KEYS & PIANOS"]["Keys - Grand Piano"];
-        for (const cat in SYNTH_LIBRARY) { if (SYNTH_LIBRARY[cat][ch.inst]) gen = SYNTH_LIBRARY[cat][ch.inst]; }
-        synthInstances[ch.id] = gen().connect(masterReverb);
-    }
-    synthInstances[ch.id].volume.value = ch.vol;
+    const userColor = getUserColor(ch.author);
+    const row = document.createElement("div");
+    row.className = "row";
+    row.dataset.id = ch.id;
 
-    const row = document.createElement("div"); row.className = "row";
-    row.style.setProperty("--u-color", ch.color);
-    
-    const controls = document.createElement("div"); controls.className = "track-controls";
-    controls.innerHTML = `<div class="track-header"><span class="track-author">${ch.author}</span><button class="delete-btn" onclick="window.removeTrack('${ch.id}')">✕</button></div>`;
-    
-    const tr1 = document.createElement("div"); tr1.className = "track-row";
-    const instS = document.createElement("select"); instS.className = "inst-select";
-    Object.keys(SYNTH_LIBRARY).forEach(cat => {
-      const g = document.createElement("optgroup"); g.label = cat;
-      Object.keys(SYNTH_LIBRARY[cat]).forEach(i => {
-        const o = document.createElement("option"); o.value = o.innerText = i; if(ch.inst === i) o.selected = true; g.appendChild(o);
-      });
-      instS.appendChild(g);
+    // ── TRACK CONTROLS ──
+    const ctrl = document.createElement("div");
+    ctrl.className = "track-controls";
+    ctrl.style.borderLeft = `3px solid ${userColor}`;
+
+    // Header
+    const header = document.createElement("div");
+    header.className = "track-header";
+
+    const authorEl = document.createElement("span");
+    authorEl.className = "track-author";
+    authorEl.textContent = ch.author;
+    authorEl.style.color = userColor;
+
+    const actions = document.createElement("div");
+    actions.className = "track-actions";
+
+    const muteBtn = document.createElement("button");
+    muteBtn.className = "icon-btn mute-btn" + (mutedTracks.has(ch.id) ? " muted" : "");
+    muteBtn.title = "Mute";
+    muteBtn.textContent = "M";
+    muteBtn.onclick = () => {
+      if (mutedTracks.has(ch.id)) mutedTracks.delete(ch.id);
+      else mutedTracks.add(ch.id);
+      buildGrid();
+    };
+
+    const soloBtn = document.createElement("button");
+    soloBtn.className = "icon-btn solo-btn" + (soloedTrack === ch.id ? " soloed" : "");
+    soloBtn.title = "Solo";
+    soloBtn.textContent = "S";
+    soloBtn.onclick = () => {
+      soloedTrack = (soloedTrack === ch.id) ? null : ch.id;
+      buildGrid();
+    };
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "icon-btn danger";
+    delBtn.title = "Delete Track";
+    delBtn.textContent = "✕";
+    delBtn.onclick = () => socket.emit("removeTrack", ch.id);
+
+    actions.append(muteBtn, soloBtn, delBtn);
+    header.append(authorEl, actions);
+    ctrl.appendChild(header);
+
+    // Row 1: instrument + note + sample upload
+    const r1 = document.createElement("div");
+    r1.className = "track-row-inner";
+
+    const instSel = document.createElement("select");
+    instSel.className = "inst-select";
+    for (const cat in SYNTH_LIBRARY) {
+      const grp = document.createElement("optgroup");
+      grp.label = cat;
+      for (const name in SYNTH_LIBRARY[cat]) {
+        const opt = document.createElement("option");
+        opt.value = opt.textContent = name;
+        if (ch.inst === name) opt.selected = true;
+        grp.appendChild(opt);
+      }
+      instSel.appendChild(grp);
+    }
+    // Custom sample option
+    const customGrp = document.createElement("optgroup");
+    customGrp.label = "CUSTOM";
+    const customOpt = document.createElement("option");
+    customOpt.value = CUSTOM_SAMPLE_KEY;
+    customOpt.textContent = customSamples[ch.id]
+      ? `Sample: ${customSamples[ch.id].name}`
+      : "Upload Sample...";
+    if (ch.inst === CUSTOM_SAMPLE_KEY) customOpt.selected = true;
+    customGrp.appendChild(customOpt);
+    instSel.appendChild(customGrp);
+    instSel.onchange = (e) => {
+      if (e.target.value === CUSTOM_SAMPLE_KEY) {
+        fileInput.click();
+      } else {
+        socket.emit("updateTrackParam", { channelId: ch.id, key: "inst", value: e.target.value });
+      }
+    };
+
+    const noteSel = document.createElement("select");
+    noteSel.className = "mini-sel";
+    noteSel.style.width = "52px";
+    NOTES.forEach(n => {
+      const o = document.createElement("option");
+      o.value = o.textContent = n;
+      if (ch.note === n) o.selected = true;
+      noteSel.appendChild(o);
     });
-    instS.onchange = (e) => socket.emit("updateTrackParam", { channelId: ch.id, key: "inst", value: e.target.value });
-    
-    const noteS = document.createElement("select"); noteS.className = "note-select";
-    NOTES.forEach(n => { const o = document.createElement("option"); o.value=o.innerText=n; if(ch.note===n) o.selected=true; noteS.appendChild(o); });
-    noteS.onchange = (e) => socket.emit("updateTrackParam", { channelId: ch.id, key: "note", value: e.target.value });
-    tr1.append(instS, noteS); controls.appendChild(tr1);
+    noteSel.onchange = (e) => socket.emit("updateTrackParam", { channelId: ch.id, key: "note", value: e.target.value });
 
-    const tr2 = document.createElement("div"); tr2.className = "track-row";
-    const volC = document.createElement("div"); volC.className = "vol-container";
-    volC.innerHTML = `<label style="font-size:9px;color:var(--text-muted)">VOL</label><input type="range" class="vol-slider" min="-40" max="0" value="${ch.vol}" oninput="window.updateTrackParam('${ch.id}', 'vol', parseFloat(this.value))">`;
-    tr2.appendChild(volC);
-    
-    const tr3 = document.createElement("div"); tr3.className = "track-row";
-    tr3.innerHTML = `<div class="vol-container"><label style="font-size:9px">RATE</label><input type="range" min="0.25" max="4" step="0.25" value="${ch.trackSpeed || 1}" oninput="window.updateTrackParam('${ch.id}', 'trackSpeed', parseFloat(this.value))"></div>`;
-    
-    controls.append(tr2, tr3);
-    if(ch.inst === "Custom Sample") {
-        const fileIn = document.createElement("input"); fileIn.type="file"; fileIn.style.fontSize="9px";
-        fileIn.onchange = (e) => window.uploadSample(e.target, ch.id);
-        controls.appendChild(fileIn);
-    }
-    row.appendChild(controls);
+    // File input for custom samples
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = "audio/*";
+    fileInput.style.display = "none";
+    fileInput.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      customSamples[ch.id] = { url, name: file.name };
+      if (synthInst[ch.id]) synthInst[ch.id].node.dispose();
+      const player = new Tone.Player({ url, loop: false }).connect(masterReverb);
+      await Tone.loaded();
+      synthInst[ch.id] = { type: CUSTOM_SAMPLE_KEY, node: player, isPlayer: true };
+      socket.emit("updateTrackParam", { channelId: ch.id, key: "inst", value: CUSTOM_SAMPLE_KEY });
+      toast("Sample loaded: " + file.name, "success");
+      buildGrid();
+    };
 
-    const stepsContainer = document.createElement("div"); stepsContainer.className = "steps";
+    const sampleBtn = document.createElement("button");
+    sampleBtn.className = "sample-btn" + (customSamples[ch.id] ? " loaded" : "");
+    sampleBtn.title = "Upload custom audio sample";
+    sampleBtn.textContent = "📁";
+    sampleBtn.onclick = () => fileInput.click();
+
+    r1.append(instSel, noteSel, sampleBtn, fileInput);
+    ctrl.appendChild(r1);
+
+    // Row 2: BPM mult + speed label + volume
+    const r2 = document.createElement("div");
+    r2.className = "track-row-inner";
+
+    const bpmSel = document.createElement("select");
+    bpmSel.className = "mini-sel";
+    bpmSel.title = "Track BPM multiplier";
+    bpmSel.innerHTML = `
+      <option value="0.5" ${ch.bpmMult===0.5?'selected':''}>½× BPM</option>
+      <option value="1"   ${(ch.bpmMult||1)===1?'selected':''}>1× BPM</option>
+      <option value="2"   ${ch.bpmMult===2?'selected':''}>2× BPM</option>
+    `;
+    bpmSel.onchange = (e) => socket.emit("updateTrackParam", { channelId: ch.id, key: "bpmMult", value: Number(e.target.value) });
+
+    const volWrap = document.createElement("div");
+    volWrap.className = "vol-wrap";
+
+    const volLabel = document.createElement("label");
+    volLabel.textContent = "VOL";
+
+    const volSlider = document.createElement("input");
+    volSlider.type = "range";
+    volSlider.min = -36; volSlider.max = 6; volSlider.value = ch.vol;
+
+    const volValEl = document.createElement("span");
+    volValEl.className = "vol-val";
+    volValEl.textContent = ch.vol + "dB";
+
+    volSlider.addEventListener("input", () => {
+      const v = Number(volSlider.value);
+      volValEl.textContent = v + "dB";
+      if (synthInst[ch.id] && synthInst[ch.id].node.volume) {
+        synthInst[ch.id].node.volume.value = v;
+      }
+    });
+    volSlider.addEventListener("change", () => {
+      socket.emit("updateTrackParam", { channelId: ch.id, key: "vol", value: Number(volSlider.value) });
+    });
+
+    volWrap.append(volLabel, volSlider, volValEl);
+    r2.append(bpmSel, volWrap);
+    ctrl.appendChild(r2);
+
+    row.appendChild(ctrl);
+
+    // ── STEPS ──
+    const stepsEl = document.createElement("div");
+    stepsEl.className = "steps";
+    buttons[ch.id] = [];
+
     ch.pattern.forEach((active, i) => {
-      const btn = document.createElement("button"); btn.className = `step-btn beat-${Math.floor(i/4)%2} ${active?'active':''}`;
-      btn.dataset.tid = ch.id; btn.dataset.idx = i;
-      btn.onclick = () => { 
-        ch.pattern[i] = !active; 
-        btn.classList.toggle("active", ch.pattern[i]);
-        socket.emit("toggleStep", { channelId: ch.id, stepIndex: i, val: ch.pattern[i] }); 
+      // Visual beat-group gap every 4 steps
+      if (i > 0 && i % 4 === 0) {
+        const gap = document.createElement("div");
+        gap.className = "step-group-gap";
+        stepsEl.appendChild(gap);
+      }
+
+      const btn = document.createElement("button");
+      btn.className = `step-btn beat-${Math.floor(i / 4) % 2}`;
+      btn.style.background = active
+        ? (ch.inst.startsWith("DRUMS") ? userColor : "var(--step-on)")
+        : "";
+      if (active) btn.classList.add("on");
+
+      btn.onclick = () => {
+        const cur = ch.pattern[i];
+        ch.pattern[i] = !cur;
+        btn.style.background = ch.pattern[i]
+          ? (ch.inst.startsWith("DRUMS") ? userColor : "var(--step-on)")
+          : "";
+        ch.pattern[i] ? btn.classList.add("on") : btn.classList.remove("on");
+        socket.emit("toggleStep", { channelId: ch.id, stepIndex: i, val: ch.pattern[i] });
       };
-      stepsContainer.appendChild(btn);
+
+      stepsEl.appendChild(btn);
+      buttons[ch.id].push(btn);
     });
-    row.appendChild(stepsContainer); rack.appendChild(row);
+
+    row.appendChild(stepsEl);
+    rack.appendChild(row);
+  });
+
+  // Add track button
+  const addBtn = document.createElement("button");
+  addBtn.className = "add-track-btn";
+  addBtn.textContent = "+ ADD TRACK";
+  addBtn.onclick = () => socket.emit("addTrack", discordUsername);
+  rack.appendChild(addBtn);
+}
+
+// ─── PLAYHEAD ────────────────────────────────────────────────────
+function updatePlayhead(tick32) {
+  state.channels.forEach(ch => {
+    if (!buttons[ch.id]) return;
+    const divisor = Math.round(2 / (ch.bpmMult || 1));
+    if (tick32 % divisor === 0) {
+      const step = Math.floor(tick32 / divisor) % state.steps;
+      buttons[ch.id].forEach((btn, i) => {
+        btn.classList.toggle("active-head", i === step);
+      });
+    }
   });
 }
 
-// --- GLOBAL ACTIONS ---
+// ─── PATTERN TABS ────────────────────────────────────────────────
+function buildPatternTabs() {
+  const list = document.getElementById("patterns-list");
+  list.innerHTML = "";
+  (state.patterns || []).forEach(pat => {
+    const btn = document.createElement("button");
+    btn.className = "pat-btn" + (pat.id === state.activePattern ? " active" : "");
+    btn.textContent = pat.name;
+    btn.onclick = () => socket.emit("switchPattern", pat.id);
+
+    // Double-click to rename
+    btn.ondblclick = () => {
+      const inp = document.createElement("input");
+      inp.className = "pat-rename-input";
+      inp.value = pat.name;
+      inp.onclick = (e) => e.stopPropagation();
+      inp.onblur = () => {
+        if (inp.value.trim()) {
+          socket.emit("renamePattern", { patternId: pat.id, name: inp.value.trim() });
+        }
+        buildPatternTabs();
+      };
+      inp.onkeydown = (e) => { if (e.key === "Enter") inp.blur(); if (e.key === "Escape") { inp.value = pat.name; inp.blur(); } };
+      btn.replaceWith(inp);
+      inp.focus(); inp.select();
+    };
+
+    list.appendChild(btn);
+  });
+}
+
+// ─── GLOBAL CONTROLS ────────────────────────────────────────────
 window.togglePlay = () => socket.emit("togglePlay", !isPlaying);
-window.clearGrid = () => socket.emit("clearGrid");
-window.sendBPM = (v) => socket.emit("setBPM", Number(v));
-window.updateBPMUI = (v) => { document.getElementById("bpmVal").innerText = v; Tone.Transport.bpm.value = v; document.getElementById("bpm").value = v; };
+
+window.stopAll = () => {
+  socket.emit("togglePlay", false);
+  currentStep32 = 0;
+  Tone.Transport.stop();
+  Tone.Transport.position = 0;
+};
+
+window.clearGrid = () => {
+  if (!confirm("Clear all steps in current pattern?")) return;
+  socket.emit("clearGrid");
+};
+
+window.sendBPM   = (v) => socket.emit("setBPM", Number(v));
+window.updateBPMUI = (v) => {
+  document.getElementById("bpmVal").textContent = v;
+  Tone.Transport.bpm.value = Number(v);
+};
 window.changeSteps = (v) => socket.emit("changeSteps", Number(v));
-window.removeTrack = (id) => socket.emit("removeTrack", id);
-window.updateTrackParam = (id, key, value) => socket.emit("updateTrackParam", { channelId: id, key, value });
-window.addTrack = () => socket.emit("addTrack", { name: localUser.name, color: localUser.color });
-window.saveProject = () => { const n = prompt("Project Name:"); if(n) socket.emit("saveProject", n); };
-window.loadProject = (v) => { if(v) socket.emit("loadProject", v); };
 
-window.uploadSample = (input, trackId) => {
-    const file = input.files[0];
-    if (file) {
-        const url = URL.createObjectURL(file);
-        window.updateTrackParam(trackId, 'sampleUrl', url);
-        window.updateTrackParam(trackId, 'inst', 'Custom Sample');
+window.saveProject = () => {
+  const name = prompt("Save project as:", state.projectName);
+  if (name) socket.emit("saveProject", name);
+};
+window.renameProject = () => {
+  const name = prompt("New project name:", state.projectName);
+  if (name) socket.emit("renameProject", name);
+};
+window.loadProject = (v) => {
+  if (v) socket.emit("loadProject", v);
+};
+
+window.addPattern = () => {
+  const name = prompt("New beat name:", "Beat " + ((state.patterns || []).length + 1));
+  if (name) socket.emit("addPattern", name);
+};
+
+// ─── AUDIO EXPORT ───────────────────────────────────────────────
+window.toggleRecord = async () => {
+  if (!isRecording) {
+    await recorder.start();
+    isRecording = true;
+    const recBtn = document.getElementById("recBtn");
+    recBtn.textContent = "⬤ STOP & EXPORT";
+    recBtn.classList.add("recording");
+    toast("Recording started...");
+  } else {
+    isRecording = false;
+    const webmBlob = await recorder.stop();
+    const recBtn = document.getElementById("recBtn");
+    recBtn.textContent = "⬤ EXPORT AUDIO";
+    recBtn.classList.remove("recording");
+    toast("Processing audio...");
+
+    try {
+      // Attempt MP3 conversion via lamejs
+      const arrayBuffer = await webmBlob.arrayBuffer();
+      const audioCtx    = new AudioContext();
+      const decoded     = await audioCtx.decodeAudioData(arrayBuffer);
+
+      const ch    = decoded.numberOfChannels;
+      const sRate = decoded.sampleRate;
+      const left  = decoded.getChannelData(0);
+      const right = ch > 1 ? decoded.getChannelData(1) : left;
+
+      const toInt16 = (f32) => {
+        const out = new Int16Array(f32.length);
+        for (let i = 0; i < f32.length; i++) {
+          out[i] = Math.max(-32768, Math.min(32767, f32[i] * 32768));
+        }
+        return out;
+      };
+
+      const encoder = new lamejs.Mp3Encoder(ch, sRate, 128);
+      const blockSize = 1152;
+      const mp3Parts = [];
+
+      for (let i = 0; i < left.length; i += blockSize) {
+        const L = toInt16(left.subarray(i, i + blockSize));
+        const R = toInt16(right.subarray(i, i + blockSize));
+        const encoded = ch > 1 ? encoder.encodeBuffer(L, R) : encoder.encodeBuffer(L);
+        if (encoded.length > 0) mp3Parts.push(new Int8Array(encoded));
+      }
+      const flushed = encoder.flush();
+      if (flushed.length > 0) mp3Parts.push(new Int8Array(flushed));
+
+      const mp3Blob = new Blob(mp3Parts, { type: "audio/mp3" });
+      const url = URL.createObjectURL(mp3Blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${state.projectName || "session"}.mp3`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      toast("MP3 exported!", "success");
+    } catch (err) {
+      console.warn("MP3 encode failed, falling back to webm:", err);
+      // Fallback: download webm
+      const url = URL.createObjectURL(webmBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${state.projectName || "session"}.webm`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      toast("Exported as WebM (MP3 failed)", "error");
     }
+  }
 };
 
-window.exportAudio = async () => {
-  alert("Recording 5 seconds...");
-  recorder.start();
-  setTimeout(async () => {
-    const blob = await recorder.stop();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "recording.wav"; a.click();
-  }, 5000);
-};
+// ─── SOCKET HANDLERS ────────────────────────────────────────────
+function setupSocket() {
+  socket.on("connect", () => {
+    document.getElementById("status").textContent = "LIVE";
+    document.getElementById("status").classList.add("live");
+  });
+  socket.on("disconnect", () => {
+    document.getElementById("status").textContent = "OFFLINE";
+    document.getElementById("status").classList.remove("live");
+  });
 
+  socket.on("initState", (s) => {
+    state = s;
+    buildGrid();
+    window.updateBPMUI(s.bpm);
+    document.getElementById("stepSelect").value = s.steps;
+  });
+
+  socket.on("stateUpdate", (s) => {
+    state = s;
+    buildGrid();
+    window.updateBPMUI(s.bpm);
+  });
+
+  socket.on("stepToggled", ({ channelId, stepIndex, val }) => {
+    const ch = state.channels.find(c => c.id === channelId);
+    if (!ch) return;
+    ch.pattern[stepIndex] = val;
+    if (buttons[channelId] && buttons[channelId][stepIndex]) {
+      const btn = buttons[channelId][stepIndex];
+      btn.style.background = val
+        ? (ch.inst.startsWith("DRUMS") ? getUserColor(ch.author) : "var(--step-on)")
+        : "";
+      val ? btn.classList.add("on") : btn.classList.remove("on");
+    }
+  });
+
+  socket.on("playUpdate", (playing) => {
+    isPlaying = playing;
+    const playBtn = document.getElementById("playBtn");
+    if (isPlaying) {
+      Tone.Transport.start();
+      playBtn.textContent = "⏸ PAUSE";
+      playBtn.classList.add("playing");
+    } else {
+      Tone.Transport.pause();
+      playBtn.textContent = "▶ PLAY";
+      playBtn.classList.remove("playing");
+    }
+  });
+
+  socket.on("bpmUpdate", (v) => {
+    window.updateBPMUI(v);
+    document.getElementById("bpm").value = v;
+  });
+
+  socket.on("projectList", (list) => {
+    const sel = document.getElementById("projectLoader");
+    sel.innerHTML = '<option value="">LOAD PROJECT...</option>';
+    list.forEach(name => {
+      const o = document.createElement("option");
+      o.value = o.textContent = name;
+      sel.appendChild(o);
+    });
+  });
+
+  socket.on("trackParamUpdated", ({ channelId, key, value }) => {
+    const ch = state.channels.find(c => c.id === channelId);
+    if (!ch) return;
+    ch[key] = value;
+    if (key === "inst" || key === "note" || key === "bpmMult") {
+      buildGrid();
+    } else if (key === "vol") {
+      if (synthInst[channelId] && synthInst[channelId].node.volume) {
+        synthInst[channelId].node.volume.value = value;
+      }
+    }
+  });
+
+  socket.on("userCount", (c) => {
+    document.getElementById("users").textContent = "● " + c;
+  });
+
+  socket.on("toast", (msg) => toast(msg));
+  socket.on("patternSwitched", (s) => { state = s; buildGrid(); });
+}
+
+// ─── KICK OFF ────────────────────────────────────────────────────
 boot();
 </script>
 </body>
