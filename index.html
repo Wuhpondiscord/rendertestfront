@@ -952,7 +952,7 @@ async function boot(){
   if(typeof io !== "undefined"){
     try{
       socket = IN_DISCORD
-        ? io({ path:SOCKET_PATH, transports:["polling"], timeout:15000, reconnectionAttempts:20, reconnectionDelay:2000 })
+        ? io({ path:SOCKET_PATH, transports:["polling","websocket"], timeout:15000, reconnectionAttempts:20, reconnectionDelay:2000 })
         : io(RENDER_URL, { path:SOCKET_PATH, transports:["websocket","polling"], timeout:15000, reconnectionAttempts:20, reconnectionDelay:2000 });
       setupSocket();
       console.log("Socket init OK, waiting for connect event...");
