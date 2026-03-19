@@ -569,21 +569,31 @@
 // ═══════════════════════════════════════════════════════════════
 //  CONFIG — environment-aware routing
 //  ─────────────────────────────────────────────────────────────
-//  IN DISCORD (*.discordsays.com host):
-//    BACKEND = "/api"  — Discord proxy prefix
-//    fetch("/api/api/config") → Discord strips /api → Render /api/config ✓
-//    io({ path:"/api/socket.io" }) → Discord strips /api → Render /socket.io ✓
+//  Discord developer portal URL mapping:
+//    Prefix /api  →  beat-backend-5nnu.onrender.com
 //
-//  IN BROWSER (GitHub Pages or localhost — direct connection):
-//    BACKEND = "https://beat-backend-5nnu.onrender.com"
-//    fetch(BACKEND + "/api/config") → direct hit to Render ✓
-//    io(BACKEND, { path:"/socket.io" }) → direct socket connection ✓
+//  Discord does NOT strip the prefix before forwarding.
+//  It appends the full path to the target host. So:
+//    /api/token  →  beat-backend-5nnu.onrender.com/api/token  ✓
+//    /api/config →  beat-backend-5nnu.onrender.com/api/config ✓
+//
+//  IN DISCORD:  use relative paths, no host needed.
+//    fetch("/api/config")  → Discord proxy → Render /api/config ✓
+//    fetch("/api/token")   → Discord proxy → Render /api/token  ✓
+//    io({ path:"/api/socket.io" }) → Render /socket.io ✓
+//
+//  IN BROWSER:  hit Render directly.
+//    fetch("https://...render.com/api/config") ✓
 // ═══════════════════════════════════════════════════════════════
-const IN_DISCORD   = location.hostname.endsWith(".discordsays.com");
-const RENDER_URL   = "https://beat-backend-5nnu.onrender.com";
-const BACKEND      = IN_DISCORD ? "/api" : RENDER_URL;
-const SOCKET_PATH  = IN_DISCORD ? "/api/socket.io" : "/socket.io";
-const FETCH_PREFIX = "/api";
+const IN_DISCORD  = location.hostname.endsWith(".discordsays.com");
+const RENDER_URL  = "https://beat-backend-5nnu.onrender.com";
+// The socket.io SERVER is configured with path "/api/socket.io".
+// Both Discord (via proxy) and direct browser connections use this same path.
+// Discord: /api/socket.io → proxy forwards to Render → hits /api/socket.io ✓
+// Browser: connects to RENDER_URL with path /api/socket.io directly      ✓
+const SOCKET_PATH = "/api/socket.io";
+
+const API_BASE = IN_DISCORD ? "/api" : RENDER_URL + "/api";
 
 const W = window;
 
@@ -726,7 +736,7 @@ try { (function(){
   // first lines — show environment immediately
   addLine("info","ENV:    "+(IN_DISCORD?"DISCORD ACTIVITY":"BROWSER DIRECT"));
   addLine("info","HOST:   "+location.hostname);
-  addLine("info","BACK:   "+BACKEND);
+  addLine("info","API:    "+API_BASE);
   addLine("info","SOCK:   "+SOCKET_PATH);
 
 })(); } catch(outerErr) {
@@ -952,10 +962,10 @@ async function boot(){
   ovMsg("FETCHING CONFIG...", 55);
   let clientId = null;
   try{
-    // BACKEND + FETCH_PREFIX + "/config"
-    // Discord: "/api" + "/api" + "/config" = "/api/api/config" → Render /api/config ✓
-    // Browser: "https://...render.com" + "/api" + "/config" → Render /api/config ✓
-    const r = await fetch(BACKEND + FETCH_PREFIX + "/config");
+    // API_BASE already includes /api, so just append the route name.
+    // Discord:  "/api/config"                    → proxy → Render /api/config ✓
+    // Browser:  "https://...render.com/api/config" → direct                  ✓
+    const r = await fetch(API_BASE + "/config");
     const j = await r.json();
     clientId = j.clientId;
   }catch(e){ console.warn("Config fetch failed:", e); }
@@ -980,7 +990,7 @@ async function boot(){
         prompt: "none", scope: ["identify"],
       });
 
-      const tr = await fetch(BACKEND + FETCH_PREFIX + "/token", {
+      const tr = await fetch(API_BASE + "/token", {
         method: "POST",
         headers: { "Content-Type":"application/json" },
         body: JSON.stringify({ code }),
