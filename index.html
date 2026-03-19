@@ -573,33 +573,22 @@
 
 <script>
 // ═══════════════════════════════════════════════════════════════
-//  CONFIG — environment-aware routing
+//  CONFIG
 //  ─────────────────────────────────────────────────────────────
-//  Discord's CSP only allows connections to:
-//    https://{clientId}.discordsays.com/.proxy/
-//    wss://{clientId}.discordsays.com/.proxy/
-//
 //  URL mapping in Developer Portal:
 //    Prefix /api  →  beat-backend-5nnu.onrender.com
 //
-//  So ALL requests inside Discord MUST use /.proxy/api/...
-//    /.proxy/api/config       → Render /api/config       ✓
-//    /.proxy/api/token        → Render /api/token        ✓
-//    /.proxy/api/socket.io/*  → Render /api/socket.io/*  ✓
+//  Discord applies mappings AFTER stripping /.proxy/ internally.
+//  Frontend uses /api/... → Discord strips /.proxy → routes /api/... to Render.
 //
-//  In browser: hit Render directly (no CSP restriction).
+//  In browser: hit Render directly.
 // ═══════════════════════════════════════════════════════════════
 const IN_DISCORD  = location.hostname.endsWith(".discordsays.com");
 const RENDER_URL  = "https://beat-backend-5nnu.onrender.com";
-
-// All paths use /.proxy/api/... in Discord, direct URL in browser
-const PROXY_BASE  = "/.proxy/api";
-const API_BASE    = IN_DISCORD ? PROXY_BASE       : RENDER_URL + "/api";
-const SOCKET_PATH = IN_DISCORD ? "/.proxy/api/socket.io" : "/api/socket.io";
-
-// socket.io script: served through proxy in Discord, CDN in browser
+const API_BASE    = IN_DISCORD ? "/api" : RENDER_URL + "/api";
+const SOCKET_PATH = "/api/socket.io";
 const SOCKETIO_SCRIPT = IN_DISCORD
-  ? "/.proxy/api/socket.io/socket.io.js"
+  ? "/api/socket.io/socket.io.js"
   : "https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js";
 
 const W = window;
@@ -918,10 +907,21 @@ async function doUnlockAudio(){
 //  All setup (socket, config, Discord SDK) happens here.
 //  No audio work happens until the user clicks Enter Studio.
 // ═══════════════════════════════════════════════════════════════
+var _bootStarted = false;
 async function boot(){
+  if(_bootStarted){ console.warn("boot() called twice — ignoring"); return; }
+  _bootStarted = true;
   ovMsg("LOADING...", 10);
 
-  // ── Step 1: wake up Render early ───────────────────────────────────────
+  // Log full URLs so we can see exactly what's being fetched
+  console.info("IN_DISCORD: " + IN_DISCORD);
+  console.info("HOSTNAME:   " + location.hostname);
+  console.info("API_BASE:   " + API_BASE);
+  console.info("SOCKET_PATH:" + SOCKET_PATH);
+  console.info("IOscript:   " + SOCKETIO_SCRIPT);
+  console.info("ConfigURL:  " + API_BASE + "/config");
+
+  // ── Step 1: wake up Render early ──────────────────────────────────────────
   try{ fetch(RENDER_URL + "/").catch(function(){}); }catch(e){}
 
   // ── Step 2: In Discord, load SDK and call patchUrlMappings FIRST ────────
@@ -993,9 +993,12 @@ async function boot(){
 
   // ── Step 5: fetch client ID ─────────────────────────────────────────────
   ovMsg("FETCHING CONFIG...", 65);
+  var configUrl = API_BASE + "/config";
+  console.log("Fetching config from: " + configUrl);
   var clientId = null;
   try{
-    var r = await fetch(API_BASE + "/config");
+    var r = await fetch(configUrl);
+    console.log("Config response status: " + r.status + " content-type: " + r.headers.get("content-type"));
     var j = await r.json();
     clientId = j.clientId;
     console.log("Config fetched. clientId:", clientId ? "ok" : "missing");
