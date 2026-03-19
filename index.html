@@ -581,18 +581,140 @@
 // ═══════════════════════════════════════════════════════════════
 const IN_DISCORD   = location.hostname.endsWith(".discordsays.com");
 const RENDER_URL   = "https://beat-backend-5nnu.onrender.com";
-// When in Discord: all requests go through the /api proxy prefix.
-// When in browser: requests go directly to Render.
 const BACKEND      = IN_DISCORD ? "/api" : RENDER_URL;
-// Socket.io path differs: through Discord proxy it must be /api/socket.io,
-// direct it's the default /socket.io.
 const SOCKET_PATH  = IN_DISCORD ? "/api/socket.io" : "/socket.io";
-// Fetch path for server routes (/api/config, /api/token).
-// In Discord: BACKEND="/api" + FETCH_PREFIX="/api" = "/api/api/config" ✓
-// In browser: BACKEND="https://...render.com" + FETCH_PREFIX="/api" = full URL ✓
 const FETCH_PREFIX = "/api";
 
 const W = window;
+
+// ═══════════════════════════════════════════════════════════════
+//  IN-PAGE LOGGER
+//  Must run immediately after config so it catches every
+//  subsequent console call including errors from boot().
+// ═══════════════════════════════════════════════════════════════
+(function(){
+  var MAX = 300;
+  var logOpen = false;
+  var worstLevel = ""; // "" | "warn" | "err"
+
+  // Save originals before overwriting
+  var _log   = console.log.bind(console);
+  var _warn  = console.warn.bind(console);
+  var _error = console.error.bind(console);
+  var _info  = console.info.bind(console);
+
+  function fmt(args){
+    var out = [];
+    for(var i=0;i<args.length;i++){
+      var a=args[i];
+      if(typeof a==="string"){ out.push(a); continue; }
+      try{ out.push(JSON.stringify(a)); }catch(e){ out.push(String(a)); }
+    }
+    return out.join(" ");
+  }
+
+  function ts(){
+    var d=new Date();
+    var h=String(d.getHours()).padStart(2,"0");
+    var m=String(d.getMinutes()).padStart(2,"0");
+    var s=String(d.getSeconds()).padStart(2,"0");
+    var ms=String(d.getMilliseconds()).padStart(3,"0");
+    return h+":"+m+":"+s+"."+ms;
+  }
+
+  function addLine(level, text){
+    try{
+      var el=document.getElementById("log-entries");
+      if(!el) return;
+      var line=document.createElement("div");
+      line.className="log-line "+level;
+      line.textContent="["+ts()+"] "+text;
+      el.appendChild(line);
+      while(el.children.length>MAX) el.removeChild(el.firstChild);
+      el.scrollTop=el.scrollHeight;
+    }catch(e){ _error("logger addLine failed:",e); }
+
+    // Update button indicator — only escalate severity, never downgrade
+    try{
+      var btn=document.getElementById("log-toggle");
+      if(!btn) return;
+      if(level==="err" && worstLevel!=="err"){
+        worstLevel="err";
+        if(!logOpen){ btn.style.color="var(--danger)"; btn.style.borderColor="var(--danger)"; }
+      } else if(level==="warn" && worstLevel==="" ){
+        worstLevel="warn";
+        if(!logOpen){ btn.style.color="var(--warn)"; btn.style.borderColor="var(--warn)"; }
+      }
+    }catch(e){}
+  }
+
+  // Intercept all four console methods
+  console.log   = function(){ try{_log.apply(console,arguments);}catch(e){} addLine("log",  fmt(arguments)); };
+  console.warn  = function(){ try{_warn.apply(console,arguments);}catch(e){} addLine("warn", fmt(arguments)); };
+  console.error = function(){ try{_error.apply(console,arguments);}catch(e){} addLine("err",  fmt(arguments)); };
+  console.info  = function(){ try{_info.apply(console,arguments);}catch(e){} addLine("info", fmt(arguments)); };
+
+  // Catch uncaught errors and unhandled promise rejections
+  window.addEventListener("error", function(e){
+    addLine("err","UNCAUGHT: "+e.message+" ("+e.filename+":"+e.lineno+")");
+  });
+  window.addEventListener("unhandledrejection", function(e){
+    var msg = e.reason && e.reason.message ? e.reason.message : String(e.reason);
+    addLine("err","UNHANDLED PROMISE: "+msg);
+  });
+
+  // Public API — all wrapped in try/catch so a bug here can't break the app
+  W.toggleLog = function(){
+    try{
+      logOpen=!logOpen;
+      var panel=document.getElementById("log-panel");
+      var btn=document.getElementById("log-toggle");
+      if(panel) panel.classList.toggle("open",logOpen);
+      if(btn){
+        // Reset indicator when user opens the panel
+        if(logOpen){ worstLevel=""; btn.style.color=""; btn.style.borderColor=""; }
+      }
+    }catch(e){ _error("toggleLog failed:",e); }
+  };
+
+  W.copyLogs = function(){
+    try{
+      var el=document.getElementById("log-entries");
+      var text=Array.from(el.children).map(function(l){return l.textContent;}).join("\n");
+      var btn=document.getElementById("log-copy");
+      function onCopied(){
+        if(btn){ btn.textContent="✓ COPIED"; setTimeout(function(){ btn.textContent="⧉ COPY ALL"; },1800); }
+      }
+      // Try modern clipboard API first, fall back silently
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(onCopied).catch(function(){
+          // clipboard blocked (common in iframes) — show the text in a prompt instead
+          // so user can manually select+copy
+          window.prompt("Copy all logs (Ctrl+A, Ctrl+C):", text);
+        });
+      } else {
+        window.prompt("Copy all logs (Ctrl+A, Ctrl+C):", text);
+      }
+    }catch(e){ _error("copyLogs failed:",e); }
+  };
+
+  W.clearLogs = function(){
+    try{
+      var el=document.getElementById("log-entries");
+      if(el) el.innerHTML="";
+      var btn=document.getElementById("log-toggle");
+      if(btn){ btn.style.color=""; btn.style.borderColor=""; }
+      worstLevel="";
+    }catch(e){}
+  };
+
+  // Log environment summary — these are the first lines that appear
+  console.info("ENV: "+(IN_DISCORD?"DISCORD ACTIVITY":"BROWSER DIRECT"));
+  console.info("HOST: "+location.hostname);
+  console.info("BACKEND: "+BACKEND);
+  console.info("SOCKET_PATH: "+SOCKET_PATH);
+})();
+
 
 // ── audio ──────────────────────────────────────────────────────
 let masterOut, masterVerb, masterComp, recorder;
@@ -1481,106 +1603,5 @@ boot();
   </div>
   <div id="log-entries"></div>
 </div>
-
-<script>
-// ═══════════════════════════════════════════════════════════════
-//  IN-PAGE LOGGER — intercepts console.log/warn/error
-//  so all output is visible inside the Discord Activity iframe
-// ═══════════════════════════════════════════════════════════════
-(function(){
-  const entries  = document.getElementById("log-entries");
-  const toggle   = document.getElementById("log-toggle");
-  const MAX_LINES = 200;
-  let   logOpen  = false;
-  let   hasErr   = false;
-  let   hasWarn  = false;
-
-  // Format any argument to a readable string
-  function fmt(args){
-    return Array.from(args).map(a=>{
-      if(typeof a === "string") return a;
-      try{ return JSON.stringify(a, null, 0); }catch(_){ return String(a); }
-    }).join(" ");
-  }
-
-  function addLine(level, text){
-    // Stamp
-    const now  = new Date();
-    const ts   = now.toTimeString().slice(0,8) + "." + String(now.getMilliseconds()).padStart(3,"0");
-    const line = document.createElement("div");
-    line.className = "log-line " + level;
-    line.textContent = "[" + ts + "] " + text;
-    entries.appendChild(line);
-
-    // Trim old lines
-    while(entries.children.length > MAX_LINES)
-      entries.removeChild(entries.firstChild);
-
-    // Auto-scroll to bottom
-    entries.scrollTop = entries.scrollHeight;
-
-    // Update toggle button state
-    if(level === "err"){ hasErr = true; toggle.className="has-err"; }
-    else if(level === "warn" && !hasErr){ hasWarn = true; toggle.className="has-warn"; }
-  }
-
-  // Intercept console methods
-  const _log   = console.log.bind(console);
-  const _warn  = console.warn.bind(console);
-  const _error = console.error.bind(console);
-  const _info  = console.info.bind(console);
-
-  console.log   = function(){ _log(...arguments);   addLine("log",  fmt(arguments)); };
-  console.warn  = function(){ _warn(...arguments);  addLine("warn", fmt(arguments)); };
-  console.error = function(){ _error(...arguments); addLine("err",  fmt(arguments)); };
-  console.info  = function(){ _info(...arguments);  addLine("info", fmt(arguments)); };
-
-  // Catch uncaught JS errors too
-  window.addEventListener("error", e=>{
-    addLine("err", "UNCAUGHT: " + e.message + " (" + e.filename + ":" + e.lineno + ")");
-  });
-  window.addEventListener("unhandledrejection", e=>{
-    addLine("err", "UNHANDLED PROMISE: " + (e.reason?.message || String(e.reason)));
-  });
-
-  // Controls
-  W.toggleLog = function(){
-    logOpen = !logOpen;
-    document.getElementById("log-panel").classList.toggle("open", logOpen);
-    // When opening, clear the error highlight — user has seen it
-    if(logOpen){ hasErr=false; hasWarn=false; toggle.className=""; }
-  };
-
-  W.copyLogs = function(){
-    const text = Array.from(entries.children).map(l=>l.textContent).join("\n");
-    navigator.clipboard.writeText(text).then(()=>{
-      const btn = document.getElementById("log-copy");
-      btn.textContent = "✓ COPIED";
-      setTimeout(()=>{ btn.textContent = "⧉ COPY ALL"; }, 1800);
-    }).catch(()=>{
-      // Fallback for environments without clipboard API
-      const ta = document.createElement("textarea");
-      ta.value = text; ta.style.position="fixed"; ta.style.opacity="0";
-      document.body.appendChild(ta); ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-      const btn = document.getElementById("log-copy");
-      btn.textContent = "✓ COPIED";
-      setTimeout(()=>{ btn.textContent = "⧉ COPY ALL"; }, 1800);
-    });
-  };
-
-  W.clearLogs = function(){
-    entries.innerHTML = "";
-    hasErr=false; hasWarn=false; toggle.className="";
-  };
-
-  // Log environment info immediately on load
-  console.info("ENV: " + (IN_DISCORD ? "DISCORD ACTIVITY" : "BROWSER DIRECT"));
-  console.info("HOST: " + location.hostname);
-  console.info("BACKEND: " + BACKEND);
-  console.info("SOCKET_PATH: " + SOCKET_PATH);
-})();
-</script>
 </body>
 </html>
