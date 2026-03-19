@@ -575,44 +575,31 @@
 // ═══════════════════════════════════════════════════════════════
 //  CONFIG
 //  ─────────────────────────────────────────────────────────────
-//  Developer Portal → Activities → URL Mappings ORDER MATTERS:
+//  Everything is served from ONE origin: beat-backend-5nnu.onrender.com
+//  Discord portal URL mapping:  /  →  beat-backend-5nnu.onrender.com
 //
-//    1st: Prefix /api  → beat-backend-5nnu.onrender.com
-//    2nd: Prefix /     → wuhpondiscord.github.io/rendertestfront
+//  No split between GitHub Pages and Render anymore.
+//  Relative paths always work because the page and the API
+//  are on the same server.
 //
-//  /api MUST be listed BEFORE / — otherwise every request including
-//  /api/config matches the / rule first and goes to GitHub Pages.
-//
-//  In Discord, prefix /.proxy/ is required for relative paths.
-//    /.proxy/api/config → Discord strips /.proxy → checks mappings
-//    → /api matches → forwards to Render as /api/config ✓
-//
-//  In browser: hit Render directly with full URL.
+//    fetch("/api/config")        → Render /api/config        ✓
+//    fetch("/.proxy/api/config") → same thing via proxy      ✓
+//    io({ path:"/api/socketio" }) → Render /api/socketio     ✓
 // ═══════════════════════════════════════════════════════════════
-// Detect Discord Activity environment.
-// IMPORTANT: only match *.discordsays.com — NOT generic "discord" hostnames.
-// "wuhpondiscord.github.io" contains "discord" but is NOT a Discord Activity.
 const _hostname  = location.hostname;
 const _href      = location.href;
+// In Discord: served via discordsays.com proxy → relative paths work
+// In browser: served directly from Render → relative paths work
+// Either way, relative paths are correct. No full URL needed.
 const IN_DISCORD = _hostname.endsWith(".discordsays.com")
                 || _hostname === "discordsays.com";
 
 const RENDER_URL  = "https://beat-backend-5nnu.onrender.com";
 
-// /.proxy/ prefix IS required for relative paths in Discord Activities.
-// External requests like https://render.com/... are blocked by CSP.
-// So in Discord: /.proxy/api/config → Discord proxy → Render /api/config
-// In browser:   full Render URL directly.
-const API_BASE = IN_DISCORD ? "/.proxy/api" : RENDER_URL + "/api";
-
-// Socket.io path must NOT contain dots — Discord URL mapping prefixes block them.
-// Server listens at /api/socketio. Client uses /.proxy/api/socketio in Discord.
-const SOCKET_PATH = IN_DISCORD ? "/.proxy/api/socketio" : "/api/socketio";
-
-// socket.io client script through proxy in Discord, CDN in browser
-const SOCKETIO_SCRIPT = IN_DISCORD
-  ? "/.proxy/api/socketio/socket.io.js"
-  : "https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js";
+// Always use relative paths — works both in Discord and direct browser access
+const API_BASE        = "/api";
+const SOCKET_PATH     = "/api/socketio";
+const SOCKETIO_SCRIPT = "/api/socketio/socket.io.js";
 
 const W = window;
 
@@ -1001,16 +988,12 @@ async function boot(){
   console.log("socket.io loaded:", typeof io !== "undefined" ? "yes" : "no");
 
   // ── Step 4: connect socket ──────────────────────────────────────────────
-  // In Discord: patchUrlMappings is now active, so io(RENDER_URL, ...) will
-  // have its connection automatically rewritten through the /api proxy.
-  // In Discord: connect to same origin (no URL), path /.proxy/api/socket.io routes through Discord proxy
-  // In browser: connect directly to Render
+  // Same origin always — page and server both on Render (or Discord's proxy of it).
+  // No URL needed; socket.io connects to the page's origin automatically.
   ovMsg("CONNECTING TO SERVER...", 50);
   if(typeof io !== "undefined"){
     try{
-      socket = IN_DISCORD
-        ? io({ path:SOCKET_PATH, transports:["polling","websocket"], timeout:15000, reconnectionAttempts:20, reconnectionDelay:2000 })
-        : io(RENDER_URL, { path:SOCKET_PATH, transports:["websocket","polling"], timeout:15000, reconnectionAttempts:20, reconnectionDelay:2000 });
+      socket = io({ path:SOCKET_PATH, transports:["polling","websocket"], timeout:15000, reconnectionAttempts:20, reconnectionDelay:2000 });
       setupSocket();
       console.log("Socket init OK");
     }catch(e){ console.warn("Socket init error:", e); }
