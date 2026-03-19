@@ -927,42 +927,77 @@ async function doUnlockAudio(){
 async function boot(){
   ovMsg("LOADING...", 10);
 
-  // ── Step 1: wake up Render (free tier spins down after inactivity) ──────
-  // Fire a lightweight ping in the background so Render starts warming up
-  // while we load other resources. Don't await it — just start it.
-  var wakeUrl = RENDER_URL + "/";
-  try{ fetch(wakeUrl).catch(function(){}); }catch(e){}
+  // ── Step 1: wake up Render early ───────────────────────────────────────
+  try{ fetch(RENDER_URL + "/").catch(function(){}); }catch(e){}
 
-  // ── Step 2: load socket.io ──────────────────────────────────────────────
-  ovMsg("LOADING SOCKET.IO...", 20);
+  // ── Step 2: In Discord, load SDK and call patchUrlMappings FIRST ────────
+  // This is the canonical fix from Discord's networking docs.
+  // patchUrlMappings rewrites browser's fetch, WebSocket, and XHR globals
+  // so that any connection to beat-backend-5nnu.onrender.com is transparently
+  // rewritten to go through Discord's /api proxy instead.
+  // This MUST happen before socket.io loads, because socket.io captures
+  // the WebSocket and XHR globals at load time.
+  if(IN_DISCORD){
+    ovMsg("LOADING SDK...", 20);
+    try{
+      var sdkModule = await import(API_BASE + "/sdk")
+        .catch(function(){
+          return import("https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@2/+esm");
+        });
+
+      // patchUrlMappings rewrites:
+      //   https://beat-backend-5nnu.onrender.com/* → /api/*
+      //   wss://beat-backend-5nnu.onrender.com/*   → /api/*  (WebSocket)
+      // This matches our URL mapping: Prefix /api → beat-backend-5nnu.onrender.com
+      if(sdkModule.patchUrlMappings){
+        sdkModule.patchUrlMappings([{
+          prefix: "/api",
+          target: "beat-backend-5nnu.onrender.com",
+        }]);
+        console.log("patchUrlMappings applied");
+      }
+
+      // Store SDK for later use in auth step
+      window._sdkModule = sdkModule;
+      console.log("SDK loaded");
+    }catch(e){
+      console.warn("SDK load failed:", e.message);
+    }
+  }
+
+  // ── Step 3: load socket.io (after patchUrlMappings is active) ───────────
+  ovMsg("LOADING SOCKET.IO...", 35);
   await Promise.race([
     new Promise(function(res){
       var s = document.createElement("script");
       s.src = SOCKETIO_SCRIPT;
       s.onload = res;
-      s.onerror = function(){ console.warn("socket.io script load failed:", SOCKETIO_SCRIPT); res(); };
+      s.onerror = function(){ console.warn("socket.io load failed:", SOCKETIO_SCRIPT); res(); };
       document.head.appendChild(s);
     }),
-    new Promise(function(res){ setTimeout(res, 8000); }) // 8s hard timeout
+    new Promise(function(res){ setTimeout(res, 8000); })
   ]);
   console.log("socket.io loaded:", typeof io !== "undefined" ? "yes" : "no");
 
-  // ── Step 3: connect socket ──────────────────────────────────────────────
-  ovMsg("CONNECTING TO SERVER...", 40);
+  // ── Step 4: connect socket ──────────────────────────────────────────────
+  // In Discord: patchUrlMappings is now active, so io(RENDER_URL, ...) will
+  // have its connection automatically rewritten through the /api proxy.
+  // We still pass RENDER_URL as the target — patchUrlMappings handles the rest.
+  ovMsg("CONNECTING TO SERVER...", 50);
   if(typeof io !== "undefined"){
     try{
       socket = IN_DISCORD
-        ? io({ path:SOCKET_PATH, transports:["polling","websocket"], timeout:15000, reconnectionAttempts:20, reconnectionDelay:2000 })
+        ? io(RENDER_URL, { path:SOCKET_PATH, transports:["polling","websocket"], timeout:15000, reconnectionAttempts:20, reconnectionDelay:2000 })
         : io(RENDER_URL, { path:SOCKET_PATH, transports:["websocket","polling"], timeout:15000, reconnectionAttempts:20, reconnectionDelay:2000 });
       setupSocket();
-      console.log("Socket init OK, waiting for connect event...");
+      console.log("Socket init OK");
     }catch(e){ console.warn("Socket init error:", e); }
   } else {
-    console.warn("socket.io not available — check SOCKETIO_SCRIPT:", SOCKETIO_SCRIPT);
+    console.warn("socket.io not available");
   }
 
-  // ── Step 4: fetch client ID ─────────────────────────────────────────────
-  ovMsg("FETCHING CONFIG...", 60);
+  // ── Step 5: fetch client ID ─────────────────────────────────────────────
+  ovMsg("FETCHING CONFIG...", 65);
   var clientId = null;
   try{
     var r = await fetch(API_BASE + "/config");
@@ -971,18 +1006,13 @@ async function boot(){
     console.log("Config fetched. clientId:", clientId ? "ok" : "missing");
   }catch(e){ console.warn("Config fetch failed:", e.message); }
 
-  // ── Step 5: Discord SDK auth ────────────────────────────────────────────
+  // ── Step 6: Discord SDK auth ────────────────────────────────────────────
   if(IN_DISCORD && clientId){
     ovMsg("DISCORD AUTH...", 80);
     try{
-      // The SDK must be reachable through Discord's proxy.
-      // We serve it from our backend at /api/sdk (proxied from npm CDN server-side).
-      // Fallback: try jsdelivr (blocked on some Discord versions but works on others).
-      var sdkModule = await import(API_BASE + "/sdk")
-        .catch(function(){
-          return import("https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@2/+esm");
-        });
-      var DiscordSDK = sdkModule.DiscordSDK;
+      var sdkMod = window._sdkModule;
+      if(!sdkMod) throw new Error("SDK module not loaded");
+      var DiscordSDK = sdkMod.DiscordSDK;
       discordSdk = new DiscordSDK(clientId);
       console.log("DiscordSDK created");
 
