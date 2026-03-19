@@ -502,8 +502,14 @@
 <script>
 // ═══════════════════════════════════════════════════════════════
 //  CONFIG
+//  ─────────────────────────────────────────────────────────────
+//  BACKEND is now the Discord proxy prefix "/api".
+//  Discord routes /api/* → beat-backend-5nnu.onrender.com/*
+//  Server routes are /api/config, /api/token — so full paths
+//  become /api/api/config, /api/api/token through the proxy.
+//  Socket.io uses path "/api/socket.io" through the same tunnel.
 // ═══════════════════════════════════════════════════════════════
-const BACKEND = "https://beat-backend-5nnu.onrender.com";
+const BACKEND = "/api";
 const W = window;
 
 // ── audio ──────────────────────────────────────────────────────
@@ -680,29 +686,39 @@ async function doUnlockAudio(){
 async function boot(){
   ovMsg("LOADING SOCKET.IO...", 15);
 
-  // Load socket.io — backend-hosted first (proxy-safe), CDN fallback
+  // Load socket.io from CDN — the Discord proxy path "/api/socket.io/socket.io.js"
+  // can't be used as a <script src> because it's a relative path that the browser
+  // would try to load from GitHub Pages (the frontend host), not the backend.
+  // CDN is the correct approach when using Discord's URL proxy mappings.
   await new Promise(res=>{
     const s = document.createElement("script");
-    s.src = BACKEND + "/socket.io/socket.io.js";
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js";
     s.onload = res;
-    s.onerror = ()=>{
-      const s2 = document.createElement("script");
-      s2.src = "https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js";
-      s2.onload = res; s2.onerror = res;
-      document.head.appendChild(s2);
-    };
+    s.onerror = res; // continue even if CDN load fails
     document.head.appendChild(s);
   });
 
   ovMsg("CONNECTING TO SERVER...", 35);
   try{
-    socket = io(BACKEND, { transports:["websocket","polling"], timeout:8000 });
+    // Connect through the Discord proxy tunnel.
+    // - No URL argument: socket.io connects to the same origin (Discord's proxy host).
+    // - path: "/api/socket.io" tells socket.io where the handshake endpoint lives.
+    //   Discord sees /api/* and forwards to beat-backend-5nnu.onrender.com/*,
+    //   so /api/socket.io/* → beat-backend-5nnu.onrender.com/socket.io/*
+    // - transports: websocket first for low latency, polling as fallback.
+    socket = io({
+      path: "/api/socket.io",
+      transports: ["websocket", "polling"],
+      timeout: 8000,
+    });
     setupSocket();
   }catch(e){ console.warn("Socket error:", e); }
 
   ovMsg("FETCHING CONFIG...", 55);
   let clientId = null;
   try{
+    // BACKEND = "/api", server route = "/api/config"
+    // Full proxy path: /api/api/config → forwarded to beat-backend.../api/config ✓
     const r = await fetch(BACKEND + "/api/config");
     const j = await r.json();
     clientId = j.clientId;
@@ -733,6 +749,8 @@ async function boot(){
         headers: { "Content-Type":"application/json" },
         body: JSON.stringify({ code }),
       });
+      // BACKEND + "/api/token" = "/api/api/token"
+      // Discord proxy: /api/api/token → beat-backend.../api/token ✓
       const { access_token } = await tr.json();
       const auth = await discordSdk.commands.authenticate({ access_token });
       username = auth.user.global_name || auth.user.username;
