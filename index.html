@@ -2,57 +2,28 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Discord Studio Pro</title>
   <style>
-    :root {
-      --bg: #09090b; --panel: #18181f; --panel-light: #24242f;
-      --text: #e2e2e8; --text-muted: #8b8b9e;
-      --border: #313142; --border-highlight: #454559;
-      --accent: #00d4ff; --danger: #ff3366;
-      --step-off-1: #252530; --step-off-2: #2e2e3b;
-      --step-on: #00d4ff; --step-active: #ffffff;
-    }
-    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; user-select: none; height: 100vh; overflow: hidden; }
-    #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(9,9,11,0.98); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
-    .start-btn { background: var(--border-highlight); color: var(--text-muted); border: none; padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
-    .start-btn.ready { background: var(--accent); color: #000; }
-    #debug-log { margin-top: 20px; font-family: monospace; font-size: 11px; color: var(--accent); background: #000; padding: 10px; border-radius: 4px; border: 1px solid var(--border); width: 340px; text-align: left; white-space: pre-wrap; height: 150px; overflow-y: auto; }
-    .top-bar { background: var(--panel); width: 100%; border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; }
-    .transport { background: var(--panel-light); width: 100%; padding: 10px 20px; display: flex; justify-content: center; align-items: center; gap: 15px; border-bottom: 1px solid var(--border); box-sizing: border-box;}
-    .channel-rack-container { width: 100%; height: calc(100vh - 110px); background: var(--bg); overflow: auto; padding: 20px; box-sizing: border-box;}
-    .row { display: flex; align-items: stretch; margin-bottom: 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; }
-    .track-controls { position: sticky; left: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; background: var(--panel); padding: 10px 15px; z-index: 10; border-right: 2px solid var(--border); width: 280px; box-sizing: border-box;}
-    .step-btn { width: 32px; height: 60px; border-radius: 3px; border: 2px solid transparent; cursor: pointer; flex-shrink: 0; }
-    .step-btn.beat-0 { background: var(--step-off-1); }
-    .step-btn.beat-1 { background: var(--step-off-2); }
+    :root { --bg: #09090b; --panel: #18181f; --accent: #00d4ff; --text: #e2e2e8; --border: #313142; }
+    body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; text-align: center; }
+    #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #09090b; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+    .start-btn { background: var(--accent); color: #000; border: none; padding: 15px 30px; font-weight: bold; border-radius: 6px; cursor: pointer; opacity: 0.5; }
+    .start-btn.ready { opacity: 1; }
+    #debug-log { margin-top: 20px; font-family: monospace; font-size: 11px; color: var(--accent); background: #000; padding: 10px; width: 350px; text-align: left; white-space: pre-wrap; height: 150px; overflow-y: auto; border: 1px solid var(--border); }
+    .row { display: flex; background: var(--panel); margin: 5px; padding: 10px; border-radius: 5px; }
+    .step-btn { width: 30px; height: 50px; margin: 1px; border: none; background: #252530; cursor: pointer; }
   </style>
 </head>
 <body>
 
 <div id="start-overlay">
-  <h1 style="color:var(--accent)">STUDIO PRO</h1>
+  <h1>STUDIO PRO</h1>
   <button id="start-btn" class="start-btn" disabled>CONNECTING...</button>
-  <div id="debug-log">Status: Searching for server...</div>
+  <div id="debug-log">Status: Initializing...</div>
 </div>
 
-<div class="top-bar">
-  <div><span id="projectNameDisplay" style="color:var(--accent); font-weight:bold;">Untitled Session</span></div>
-  <div id="currentUserDisplay" style="font-size: 12px;">Syncing...</div>
-</div>
-
-<div class="transport">
-    <div id="status">OFFLINE</div>
-    <button id="playBtn" onclick="window.togglePlay()">PLAY</button>
-    <button onclick="window.clearGrid()">CLEAR</button>
-    <div class="control-group">
-        <label style="font-size:10px;">BPM</label>
-        <input id="bpm" type="range" min="60" max="180" value="120" oninput="window.updateBPMUI(this.value)" onchange="window.sendBPM(this.value)"/>
-        <span id="bpmVal" style="font-family:monospace; width:25px;">120</span>
-    </div>
-</div>
-
-<div class="channel-rack-container"><div id="rack"></div></div>
+<div id="currentUserDisplay">Connecting...</div>
+<div id="rack"></div>
 
 <script type="module">
 import { DiscordSDK } from "https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.2.0/+esm";
@@ -62,9 +33,8 @@ import * as Tone from "https://esm.sh/tone@14.8.49";
 const BACKEND_URL = "https://beat-backend-5nnu.onrender.com";
 const REDIRECT_URI = "https://127.0.0.1";
 
-let socket, discordSdk, discordUsername = "Producer", masterReverb;
-let currentStep32 = 0, isPlaying = false;
-let buttons = {}, synthInstances = {}, state = { bpm: 120, steps: 16, channels: [] };
+let socket, discordSdk, discordUsername = "Guest", masterReverb;
+let state = { bpm: 120, steps: 16, channels: [] };
 
 const debug = (msg) => { 
     const log = document.getElementById("debug-log");
@@ -74,40 +44,39 @@ const debug = (msg) => {
 
 async function boot() {
   const btn = document.getElementById("start-btn");
-  const searchParams = new URLSearchParams(window.location.search);
-  const isDiscord = searchParams.has('frame_id');
+  const isDiscord = window.location.hostname.includes("discordsays.com");
   
   let clientId = null;
 
-  // AGGRESSIVE SERVER CHECK
+  // 1. SMART CONFIG FETCH
   while (!clientId) {
     try {
-      debug("Waking up Render server...");
-      // Try Proxy path first if in Discord, otherwise use absolute URL
-      const fetchPath = isDiscord ? "/api/config" : `${BACKEND_URL}/api/config`;
-      const res = await fetch(fetchPath);
-      if (!res.ok) throw new Error("Server not responding");
+      // If we are in Discord, use the proxy path. If in Browser, use absolute path.
+      const configPath = isDiscord ? "/api/config" : `${BACKEND_URL}/api/config`;
+      debug("Calling: " + configPath);
+      
+      const res = await fetch(configPath);
       const data = await res.json();
       clientId = data.clientId;
     } catch (e) {
-      debug("Server sleeping... Retrying in 4s");
+      debug("Waiting for server to wake up...");
       await new Promise(r => setTimeout(r, 4000));
     }
   }
 
-  debug("Server reached! Initializing Sockets...");
-  socket = io(BACKEND_URL, { transports: ["websocket"] });
+  debug("Server Found!");
+  socket = io(BACKEND_URL);
   setupSocket();
 
+  // 2. DISCORD AUTH
   if (isDiscord) {
     try {
-      debug("Inside Discord. Starting Auth...");
+      debug("Discord SDK Init...");
       discordSdk = new DiscordSDK(clientId);
       await discordSdk.ready();
       
       const { code } = await discordSdk.commands.authorize({ 
-        client_id: clientId, 
-        response_type: "code", state: "", prompt: "none", 
+        client_id: clientId, response_type: "code", state: "", prompt: "none", 
         scope: ["identify"], redirect_uri: REDIRECT_URI 
       });
 
@@ -118,14 +87,13 @@ async function boot() {
       const tokenData = await tokenRes.json();
       const auth = await discordSdk.commands.authenticate({ access_token: tokenData.access_token });
       discordUsername = auth.user.username;
-      debug("Logged in: " + discordUsername);
+      debug("Logged in as " + discordUsername);
     } catch (err) {
-      debug("Discord Auth Failed: " + err.message);
-      discordUsername = "User_" + Math.floor(Math.random()*99);
+      debug("Discord Error: " + err.message);
     }
   } else {
-    debug("Web Browser Mode Active.");
-    discordUsername = "Guest_" + Math.floor(Math.random()*99);
+    debug("Web Browser Mode.");
+    discordUsername = "Web_User_" + Math.floor(Math.random()*99);
   }
 
   btn.innerText = "ENTER STUDIO";
@@ -136,59 +104,22 @@ async function boot() {
 
 window.initAudio = async () => {
   await Tone.start();
-  masterReverb = new Tone.Reverb({ decay: 2.5, wet: 0.2 }).toDestination();
+  masterReverb = new Tone.Reverb({ decay: 2 }).toDestination();
   document.getElementById("start-overlay").style.display = "none";
-  document.getElementById("currentUserDisplay").innerText = "Producer: " + discordUsername;
-  
-  Tone.Transport.scheduleRepeat((time) => {
-    state.channels.forEach(ch => {
-      if (currentStep32 % ch.speed === 0) {
-        let step = Math.floor(currentStep32 / ch.speed) % state.steps;
-        if (ch.pattern[step] && synthInstances[ch.id]) {
-          synthInstances[ch.id].node.triggerAttackRelease(ch.note, "16n", time);
-        }
-      }
-    });
-    Tone.Draw.schedule(() => updatePlayhead(currentStep32), time);
-    currentStep32++;
-  }, "32n");
-};
-
-// ... (KEEP THE REST OF YOUR SYNTH_LIBRARY AND UI FUNCTIONS ...)
-const SYNTH_LIBRARY = {
-    "Drums": { 
-        "Kick - 808": () => new Tone.MembraneSynth(), 
-        "Snare - Trap": () => new Tone.NoiseSynth({ noise: { type: 'pink' } }),
-        "Hat - Closed": () => new Tone.MetalSynth({ frequency: 250, envelope: { decay: 0.05 } })
-    },
-    "Keys": {
-        "Piano": () => new Tone.PolySynth(Tone.Synth, { oscillator: { type: "sine" } }),
-        "Electric": () => new Tone.PolySynth(Tone.FMSynth)
-    }
+  document.getElementById("currentUserDisplay").innerText = "User: " + discordUsername;
+  buildGrid();
 };
 
 function buildGrid() {
   const rack = document.getElementById("rack");
   rack.innerHTML = "";
   state.channels.forEach(ch => {
-    if (!synthInstances[ch.id] || synthInstances[ch.id].type !== ch.inst) {
-      if (synthInstances[ch.id]) synthInstances[ch.id].node.dispose();
-      let gen = SYNTH_LIBRARY["Keys"]["Piano"];
-      for (const cat in SYNTH_LIBRARY) { if (SYNTH_LIBRARY[cat][ch.inst]) gen = SYNTH_LIBRARY[cat][ch.inst]; }
-      synthInstances[ch.id] = { type: ch.inst, node: gen().connect(masterReverb) };
-    }
     const row = document.createElement("div"); row.className = "row";
-    const ctrl = document.createElement("div"); ctrl.className = "track-controls";
-    ctrl.innerHTML = `<span>${ch.author}</span><br>
-      <select onchange="window.upParam('${ch.id}', 'inst', this.value)">
-        ${Object.keys(SYNTH_LIBRARY).map(cat => `<optgroup label="${cat}">${Object.keys(SYNTH_LIBRARY[cat]).map(i => `<option ${ch.inst===i?'selected':''}>${i}</option>`)}</optgroup>`)}
-      </select>
-      <button onclick="window.removeTrack('${ch.id}')">✕</button>`;
-    row.appendChild(ctrl);
-    const steps = document.createElement("div"); steps.style.display="flex";
+    row.innerHTML = `<span>${ch.author}</span>`;
+    const steps = document.createElement("div");
     ch.pattern.forEach((a, i) => {
-      const b = document.createElement("button"); b.className = `step-btn beat-${Math.floor(i/4)%2}`;
-      b.style.background = a ? "var(--step-on)" : "";
+      const b = document.createElement("button"); b.className = "step-btn";
+      b.style.background = a ? "var(--accent)" : "";
       b.onclick = () => socket.emit("toggleStep", { channelId: ch.id, stepIndex: i, val: !a });
       steps.appendChild(b);
     });
@@ -199,4 +130,12 @@ function buildGrid() {
   rack.appendChild(add);
 }
 
-function updatePlayhead(tick) { /* Same as bef
+function setupSocket() {
+  socket.on("initState", (s) => { state = s; buildGrid(); });
+  socket.on("stateUpdate", (s) => { state = s; buildGrid(); });
+}
+
+boot();
+</script>
+</body>
+</html>
