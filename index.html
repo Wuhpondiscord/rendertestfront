@@ -421,13 +421,12 @@
     /* ── DEBUG LOG PANEL ───────────────────────────────────────── */
     #log-panel {
       position: fixed; bottom: 0; left: 0; right: 0;
-      height: 200px; z-index: 10000; /* above overlay (9999) so always accessible */
-      background: rgba(4,4,8,.97);
-      border-top: 1px solid var(--bhi);
-      display: none; flex-direction: column;
+      height: 50vh; z-index: 10000;
+      background: rgba(4,4,8,.98);
+      border-top: 2px solid var(--accent);
+      display: flex; flex-direction: column;  /* always open — no button needed */
       font-family: var(--mono); font-size: 10px;
     }
-    #log-panel.open { display: flex; }
     #log-toolbar {
       display: flex; align-items: center; gap: 6px;
       padding: 4px 8px; border-bottom: 1px solid var(--border);
@@ -459,6 +458,7 @@
     #log-close:hover { color: var(--text); }
     #log-entries {
       flex: 1; overflow-y: auto; padding: 4px 8px;
+      user-select: text; -webkit-user-select: text; /* allow text selection for copy */
     }
     #log-entries::-webkit-scrollbar { width: 4px; }
     #log-entries::-webkit-scrollbar-thumb { background: var(--bhi); border-radius: 2px; }
@@ -613,7 +613,6 @@ W.toggleLog = W.copyLogs = W.clearLogs = function(){};
 
 try { (function(){
 
-  var logOpen    = false;
   var worstLevel = 0; // 0=none 1=warn 2=err
   var MAX        = 300;
 
@@ -668,13 +667,11 @@ try { (function(){
       var lv = (level==="err"?2:level==="warn"?1:0);
       if(lv>worstLevel){
         worstLevel=lv;
-        if(!logOpen){
-          var clr = lv===2?"#ff3060":"#ffb800";
-          var ids = ["log-toggle","ov-log-btn"];
-          for(var bi=0;bi<ids.length;bi++){
-            var btn=document.getElementById(ids[bi]);
-            if(btn){ btn.style.color=clr; btn.style.borderColor=clr; }
-          }
+        var clr = lv===2?"#ff3060":"#ffb800";
+        var ids = ["log-toggle","ov-log-btn"];
+        for(var bi=0;bi<ids.length;bi++){
+          var btn=document.getElementById(ids[bi]);
+          if(btn){ btn.style.color=clr; btn.style.borderColor=clr; }
         }
       }
     }catch(e){}
@@ -697,21 +694,19 @@ try { (function(){
     });
   }catch(e){}
 
-  // --- public API ---
+  // panel is always open — toggleLog just resets the indicator colour
   W.toggleLog=function(){
     try{
-      logOpen=!logOpen;
-      var panel=document.getElementById("log-panel");
-      if(panel) panel.className=logOpen?"open":"";
-      if(logOpen){
-        worstLevel=0;
-        var ids=["log-toggle","ov-log-btn"];
-        for(var bi=0;bi<ids.length;bi++){
-          var btn=document.getElementById(ids[bi]);
-          if(btn){ btn.style.color=""; btn.style.borderColor=""; }
-        }
+      worstLevel=0;
+      var ids=["log-toggle","ov-log-btn"];
+      for(var bi=0;bi<ids.length;bi++){
+        var btn=document.getElementById(ids[bi]);
+        if(btn){ btn.style.color=""; btn.style.borderColor=""; }
       }
-    }catch(e){ _error("toggleLog err",e); }
+      // scroll to bottom so latest entries are visible
+      var el=document.getElementById("log-entries");
+      if(el) el.scrollTop=99999999;
+    }catch(e){}
   };
 
   W.copyLogs=function(){
@@ -720,17 +715,14 @@ try { (function(){
       var lines=[]; var kids=el.childNodes;
       for(var i=0;i<kids.length;i++) lines.push(kids[i].textContent||"");
       var text=lines.join("\n");
-      var btn=document.getElementById("log-copy");
-      function ok(){ if(btn){btn.textContent="✓ COPIED";setTimeout(function(){btn.textContent="⧉ COPY ALL";},1800);} }
-      // try clipboard API, fall back to prompt (works everywhere incl. Discord iframe)
       if(window.navigator&&window.navigator.clipboard&&window.navigator.clipboard.writeText){
-        window.navigator.clipboard.writeText(text).then(ok).catch(function(){
-          try{ window.prompt("Select all + copy:",text); }catch(x){}
+        window.navigator.clipboard.writeText(text).catch(function(){
+          try{ window.prompt("Copy:",text); }catch(x){}
         });
       } else {
-        try{ window.prompt("Select all + copy:",text); }catch(x){}
+        try{ window.prompt("Copy:",text); }catch(x){}
       }
-    }catch(e){ _error("copyLogs err",e); }
+    }catch(e){}
   };
 
   W.clearLogs=function(){
@@ -738,16 +730,15 @@ try { (function(){
       var el=document.getElementById("log-entries");
       if(el) el.innerHTML="";
       worstLevel=0;
-      var btn=document.getElementById("log-toggle");
-      if(btn){ btn.style.color=""; btn.style.borderColor=""; }
     }catch(e){}
   };
 
-  // first lines — show environment immediately
+  // first lines — show environment immediately on every load
   addLine("info","ENV:    "+(IN_DISCORD?"DISCORD ACTIVITY":"BROWSER DIRECT"));
   addLine("info","HOST:   "+location.hostname);
   addLine("info","API:    "+API_BASE);
   addLine("info","SOCK:   "+SOCKET_PATH);
+  addLine("info","SCRIPT: "+SOCKETIO_SCRIPT);
 
 })(); } catch(outerErr) {
   // If the entire logger IIFE threw, at minimum make the button open a plain alert
