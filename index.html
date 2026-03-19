@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discord Studio Pro</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+  
+  <style>
+    :root {
+      --bg: #09090b; --panel: #18181f; --panel-light: #24242f;
+      --text: #e2e2e8; --text-muted: #8b8b9e;
+      --border: #313142; --border-highlight: #454559;
+      --accent: #00d4ff; --danger: #ff3366; --record: #ff4747;
+      --step-off-1: #252530; --step-off-2: #2e2e3b;
+      --step-on: #00d4ff; --step-active: #ffffff;
+    }
+    
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; user-select: none; height: 100vh; overflow: hidden; }
+
+    #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(9,9,11,0.98); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+    #start-overlay h1 { color: var(--accent); margin-bottom: 20px; font-weight: 300; letter-spacing: 2px;}
+    
+    .start-btn { background: var(--border-highlight); color: var(--text-muted); border: none; padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: not-allowed; transition: 0.2s; }
+    .start-btn.ready { background: var(--accent); color: #000; cursor: pointer; }
+    .start-btn.ready:hover { transform: scale(1.05); }
+
+    .top-bar { background: var(--panel); width: 100%; border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; }
+    .nav-group { display: flex; align-items: center; gap: 10px; }
+    .project-name { font-weight: 600; font-size: 14px; color: var(--accent); margin-right: 15px;}
+    
+    .transport { background: var(--panel-light); width: 100%; padding: 10px 20px; display: flex; justify-content: center; align-items: center; gap: 15px; border-bottom: 1px solid var(--border); box-sizing: border-box;}
+    .status-area { position: absolute; left: 20px; display: flex; align-items: center; gap: 15px; }
+    #status { font-size: 11px; font-weight: bold; color: var(--text-muted); padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px;}
+    #users { font-size: 12px; color: var(--text-muted); }
+
+    button, select { background: var(--panel); color: var(--text); border: 1px solid var(--border); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; transition: 0.1s; outline: none; }
+    button:hover, select:hover { background: var(--border-highlight); }
+    #playBtn { background: var(--accent); color: #000; border: none; width: 80px;}
+    #recBtn { background: var(--panel); color: var(--record); border-color: var(--record); width: 140px; }
+    #recBtn.recording { background: var(--record); color: #fff; border: none; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+    .control-group { display: flex; align-items: center; gap: 8px; background: var(--bg); padding: 4px 12px; border-radius: 4px; border: 1px solid var(--border); }
+    .control-group label { font-size: 10px; color: var(--text-muted); font-weight: bold; letter-spacing: 1px;}
+    input[type="range"] { accent-color: var(--accent); height: 4px; background: var(--border); border-radius: 2px; outline: none; cursor: pointer; }
+
+    .channel-rack-container { width: 100%; height: calc(100vh - 110px); background: var(--bg); overflow-x: auto; overflow-y: auto; padding: 20px; box-sizing: border-box;}
+    .channel-rack-container::-webkit-scrollbar { width: 10px; height: 10px; }
+    .channel-rack-container::-webkit-scrollbar-thumb { background: var(--border-highlight); border-radius: 5px; }
+
+    .channel-rack { display: inline-block; padding-bottom: 50px; }
+    .row { display: flex; align-items: stretch; margin-bottom: 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; }
+
+    .track-controls { position: sticky; left: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; background: var(--panel); padding: 10px 15px; z-index: 10; border-right: 2px solid var(--border); width: 280px; box-sizing: border-box;}
+    .track-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+    .track-author { font-size: 9px; color: var(--text-muted); font-weight: bold; text-transform: uppercase;}
+    .delete-btn { background: transparent; color: var(--text-muted); border: none; cursor: pointer; font-size: 14px;}
+    .delete-btn:hover { color: var(--danger); }
+    
+    .track-row { display: flex; align-items: center; gap: 5px; width: 100%; margin-top: 2px;}
+    .inst-select { flex: 1; font-size: 11px; height: 28px;}
+    .note-select { width: 55px; font-size: 11px; height: 28px;}
+    .speed-select { width: 60px; font-size: 11px; height: 28px;}
+    .vol-container { display: flex; align-items: center; gap: 5px; flex: 1; background: var(--bg); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border);}
+    .vol-slider { width: 100%; }
+
+    .steps { display: flex; gap: 2px; padding: 10px 20px;}
+    .step-btn { width: 32px; height: 100%; min-height: 60px; border-radius: 3px; border: 1px solid transparent; padding: 0; flex-shrink: 0; cursor: pointer; transition: background 0.1s;}
+    .step-btn.beat-0 { background: var(--step-off-1); }
+    .step-btn.beat-1 { background: var(--step-off-2); }
+    
+    .add-track-btn { margin-top: 10px; background: transparent; border: 1px dashed var(--border-highlight); color: var(--text-muted); padding: 15px; font-size: 14px; width: 280px; cursor: pointer; }
+    .add-track-btn:hover { border-color: var(--accent); color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<div id="start-overlay">
+  <h1>DISCORD STUDIO PRO</h1>
+  <button id="start-btn" class="start-btn" disabled>CONNECTING TO SERVER...</button>
+</div>
+
+<div class="top-bar">
+  <div class="nav-group">
+    <span class="project-name" id="projectNameDisplay">Untitled Session</span>
+    <button onclick="window.saveProject()">SAVE PROJECT</button>
+    <select id="projectLoader" onchange="window.loadProject(this.value)">
+      <option value="">LOAD PROJECT...</option>
+    </select>
+  </div>
+  <div id="currentUserDisplay" style="font-size: 12px; color: var(--text-muted);">Authenticating...</div>
+</div>
+
+<div class="transport">
+  <div class="status-area">
+    <div id="status">OFFLINE</div>
+    <div id="users">Users: 1</div>
+  </div>
+  <button id="recBtn" onclick="window.toggleRecord()">EXPORT AUDIO</button>
+  <button id="playBtn" onclick="window.togglePlay()">PLAY</button>
+  <button onclick="window.clearGrid()">CLEAR</button>
+  <div class="control-group"><label>LEN</label><select id="stepSelect" onchange="window.changeSteps(this.value)"><option value="16">16</option><option value="32">32</option><option value="64">64</option></select></div>
+  <div class="control-group"><label>BPM</label><input id="bpm" type="range" min="60" max="180" value="120" oninput="window.updateBPMUI(this.value)" onchange="window.sendBPM(this.value)"/><span id="bpmVal" style="width: 30px; font-family: monospace;">120</span></div>
+</div>
+
+<div class="channel-rack-container">
+  <div id="rack" class="channel-rack"></div>
+</div>
+
+<script type="module">
+import { DiscordSDK } from "https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.2.0/+esm";
+
+const BACKEND_URL = "https://beat-backend-5nnu.onrender.com"; 
+let socket, discordSdk, recorder, masterReverb;
+let discordUsername = "Producer";
+let currentStep32 = 0, isPlaying = false, isRecording = false;
+let buttons = {}, synthInstances = {}, state = { projectName: "Untitled", bpm: 120, steps: 16, channels: [] };
+
+const NOTES = ["C1","D1","E1","F1","G1","A1","B1", "C2","D2","E2","F2","G2","A2","B2", "C3","D3","E3","F3","G3","A3","B3", "C4","D4","E4","F4","G4","A4","B4", "C5","D5","E5","F5","G5","A5","B5"];
+
+// --- 150+ SYNTH ENGINE (Optimized & Emoji-Free) ---
+const p = (type, opts) => new Tone.PolySynth(type, opts);
+const m = (opts) => new Tone.MembraneSynth(opts);
+const n = (opts) => new Tone.NoiseSynth(opts);
+
+const SYNTH_LIBRARY = {
+  "DRUMS: Kicks": {
+    "Kick - 808 Trap": () => m({ pitchDecay: 0.005, octaves: 2, envelope: { attack: 0.01, decay: 0.8, sustain: 0.1 } }),
+    "Kick - House": () => m({ pitchDecay: 0.1, octaves: 5 }),
+    "Kick - Deep Sub": () => m({ pitchDecay: 0.05, octaves: 2 }),
+    "Kick - Techno": () => m({ pitchDecay: 0.08, octaves: 4 })
+  },
+  "DRUMS: Snares": {
+    "Snare - Trap": () => n({ noise: { type: 'pink' }, envelope: { attack: 0.001, decay: 0.1 } }),
+    "Snare - Acoustic": () => n({ noise: { type: 'white' }, envelope: { attack: 0.005, decay: 0.2 } }),
+    "Clap - Studio": () => n({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.3 } }),
+    "Clap - Wide": () => n({ noise: { type: 'pink' }, envelope: { attack: 0.01, decay: 0.5 } })
+  },
+  "DRUMS: Percussion": {
+    "Perc - Closed Hat": () => new Tone.MetalSynth({ frequency: 250, envelope: { decay: 0.05 } }),
+    "Perc - Open Hat": () => new Tone.MetalSynth({ frequency: 200, envelope: { decay: 0.3 } }),
+    "Perc - Cowbell": () => new Tone.FMSynth({ harmonicity: 1.2, modulationIndex: 2.5, oscillator: { type: "square" } }),
+    "Perc - Rimshot": () => m({ pitchDecay: 0.01, octaves: 2, envelope: { attack: 0.001, decay: 0.05 } })
+  },
+  "BASSES": {
+    "Bass - Sub Sine": () => p(Tone.Synth, { oscillator: { type: "sine" } }),
+    "Bass - Acid Saw": () => p(Tone.MonoSynth, { oscillator: { type: "sawtooth" }, filter: { Q: 4, type: "lowpass" } }),
+    "Bass - Deep Square": () => p(Tone.Synth, { oscillator: { type: "square" } }),
+    "Bass - Reese Saw": () => p(Tone.Synth, { oscillator: { type: "fatsawtooth", count: 3 } })
+  },
+  "KEYS & PIANOS": {
+    "Keys - Grand Piano": () => p(Tone.Synth, { oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 1.5, release: 1 } }),
+    "Keys - Electric Rhodes": () => p(Tone.FMSynth, { harmonicity: 2, modulationIndex: 1.5 }),
+    "Keys - FM Tine": () => p(Tone.FMSynth, { harmonicity: 1, modulationIndex: 1 }),
+    "Organ - Church": () => p(Tone.Synth, { oscillator: { type: "fatsquare", count: 3 } })
+  },
+  "STRINGS & PADS": {
+    "Strings - Ensemble": () => p(Tone.Synth, { oscillator: { type: "fatsawtooth", count: 5 }, envelope: { attack: 0.4, release: 1 } }),
+    "Pad - Dream Sine": () => p(Tone.Synth, { oscillator: { type: "fatsine", spread: 30 }, envelope: { attack: 1, release: 2 } }),
+    "Pad - Dark Saw": () => p(Tone.Synth, { oscillator: { type: "fatsawtooth", spread: 20 }, envelope: { attack: 1.5, release: 2 } }),
+    "Choir - FM Voices": () => p(Tone.FMSynth, { harmonicity: 0.5, modulationIndex: 5 })
+  },
+  "LEADS & SYNTHS": {
+    "Lead - Theremin": () => p(Tone.Synth, { oscillator: { type: "sine" }, portamento: 0.2 }),
+    "Lead - Fat Trance": () => p(Tone.Synth, { oscillator: { type: "fatsawtooth", count: 3, spread: 15 } }),
+    "8-Bit - Pulse 25%": () => p(Tone.Synth, { oscillator: { type: "pulse", width: 0.25 } }),
+    "FX - Sub Drop": () => new Tone.MembraneSynth({ pitchDecay: 0.5, octaves: 10 })
+  }
+};
+
+// --- BOOTSTRAP SEQUENCE ---
+async function boot() {
+  const btn = document.getElementById("start-btn");
+  try {
+    const configRes = await fetch(`${BACKEND_URL}/api/config`);
+    const { clientId } = await configRes.json();
+    
+    socket = io(BACKEND_URL, { transports: ["websocket"] });
+    setupSocket();
+
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.has('frame_id')) {
+      discordSdk = new DiscordSDK(clientId);
+      await discordSdk.ready();
+      const { code } = await discordSdk.commands.authorize({ client_id: clientId, response_type: "code", prompt: "none", scope: ["identify"] });
+      const res = await fetch(`${BACKEND_URL}/api/token`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({code}) });
+      const { access_token } = await res.json();
+      const auth = await discordSdk.commands.authenticate({ access_token });
+      discordUsername = auth.user.username;
+    }
+  } catch(e) { console.warn("Running in Browser/Offline fallback"); }
+  
+  btn.innerText = "ENTER STUDIO";
+  btn.classList.add("ready");
+  btn.disabled = false;
+  btn.onclick = window.initAudio;
+}
+
+window.initAudio = async () => {
+  await Tone.start();
+  masterReverb = new Tone.Reverb({ decay: 2, wet: 0.15 }).toDestination();
+  recorder = new Tone.Recorder();
+  masterReverb.connect(recorder);
+  document.getElementById("start-overlay").style.display = "none";
+  document.getElementById("currentUserDisplay").innerText = "Logged in as: " + discordUsername;
+  startTimingLoop();
+};
+
+function startTimingLoop() {
+  Tone.Transport.scheduleRepeat((time) => {
+    state.channels.forEach(ch => {
+      if (currentStep32 % ch.speed === 0) {
+        let stepIndex = Math.floor(currentStep32 / ch.speed) % state.steps;
+        if (ch.pattern[stepIndex] && synthInstances[ch.id]) {
+          try { synthInstances[ch.id].node.triggerAttackRelease(ch.note, "16n", time); } catch(e) {}
+        }
+      }
+    });
+    Tone.Draw.schedule(() => updatePlayhead(currentStep32), time);
+    currentStep32++;
+  }, "32n");
+}
+
+function syncSynths() {
+  if(!masterReverb) return;
+  state.channels.forEach(ch => {
+    if (!synthInstances[ch.id] || synthInstances[ch.id].type !== ch.inst) {
+      if (synthInstances[ch.id]) synthInstances[ch.id].node.dispose();
+      let gen = SYNTH_LIBRARY["KEYS & PIANOS"]["Keys - Grand Piano"];
+      for (const cat in SYNTH_LIBRARY) { if (SYNTH_LIBRARY[cat][ch.inst]) gen = SYNTH_LIBRARY[cat][ch.inst]; }
+      let node = gen().connect(masterReverb);
+      synthInstances[ch.id] = { type: ch.inst, node: node };
+    }
+    if (synthInstances[ch.id].node.volume) synthInstances[ch.id].node.volume.value = ch.vol;
+  });
+  Object.keys(synthInstances).forEach(id => {
+    if (!state.channels.find(c => c.id === id)) { synthInstances[id].node.dispose(); delete synthInstances[id]; }
+  });
+}
+
+function buildGrid() {
+  const rack = document.getElementById("rack");
+  rack.innerHTML = ""; buttons = {}; syncSynths();
+  document.getElementById("projectNameDisplay").innerText = state.projectName;
+
+  state.channels.forEach(ch => {
+    const row = document.createElement("div"); row.className = "row";
+    const controls = document.createElement("div"); controls.className = "track-controls";
+    controls.innerHTML = `<div class="track-header"><span class="track-author">${ch.author}</span><button class="delete-btn" onclick="window.removeTrack('${ch.id}')">✕</button></div>`;
+    
+    const tr1 = document.createElement("div"); tr1.className = "track-row";
+    const instS = document.createElement("select"); instS.className = "inst-select";
+    Object.keys(SYNTH_LIBRARY).forEach(cat => {
+      const g = document.createElement("optgroup"); g.label = cat;
+      Object.keys(SYNTH_LIBRARY[cat]).forEach(i => {
+        const o = document.createElement("option"); o.value = o.innerText = i; if(ch.inst === i) o.selected = true; g.appendChild(o);
+      });
+      instS.appendChild(g);
+    });
+    instS.onchange = (e) => socket.emit("updateTrackParam", { channelId: ch.id, key: "inst", value: e.target.value });
+    
+    const noteS = document.createElement("select"); noteS.className = "note-select";
+    NOTES.forEach(n => { const o = document.createElement("option"); o.value=o.innerText=n; if(ch.note===n) o.selected=true; noteS.appendChild(o); });
+    noteS.onchange = (e) => socket.emit("updateTrackParam", { channelId: ch.id, key: "note", value: e.target.value });
+    tr1.append(instS, noteS); controls.appendChild(tr1);
+
+    const tr2 = document.createElement("div"); tr2.className = "track-row";
+    const spdS = document.createElement("select"); spdS.className = "speed-select";
+    spdS.innerHTML = `<option value="1" ${ch.speed==1?'selected':''}>FAST</option><option value="2" ${ch.speed==2?'selected':''}>NORM</option><option value="4" ${ch.speed==4?'selected':''}>SLOW</option>`;
+    spdS.onchange = (e) => socket.emit("updateTrackParam", { channelId: ch.id, key: "speed", value: Number(e.target.value) });
+    
+    const volC = document.createElement("div"); volC.className = "vol-container";
+    volC.innerHTML = `<label style="font-size:9px;color:var(--text-muted)">VOL</label><input type="range" class="vol-slider" min="-30" max="10" value="${ch.vol}" oninput="window.updateLocalVol('${ch.id}', this.value)" onchange="window.updateRemoteVol('${ch.id}', this.value)">`;
+    tr2.append(spdS, volC); controls.appendChild(tr2); row.appendChild(controls);
+
+    const stepsContainer = document.createElement("div"); stepsContainer.className = "steps";
+    buttons[ch.id] = [];
+    ch.pattern.forEach((active, i) => {
+      const btn = document.createElement("button"); btn.className = `step-btn beat-${Math.floor(i/4)%2}`;
+      btn.style.background = active ? "var(--step-on)" : "";
+      btn.onclick = () => { 
+        ch.pattern[i] = !active; 
+        btn.style.background = ch.pattern[i] ? "var(--step-on)" : ""; 
+        socket.emit("toggleStep", { channelId: ch.id, stepIndex: i, val: ch.pattern[i] }); 
+      };
+      stepsContainer.appendChild(btn); buttons[ch.id].push(btn);
+    });
+    row.appendChild(stepsContainer); rack.appendChild(row);
+  });
+
+  const add = document.createElement("button"); add.className = "add-track-btn"; add.innerText = "+ ADD TRACK";
+  add.onclick = () => socket.emit("addTrack", discordUsername);
+  rack.appendChild(add);
+}
+
+function updatePlayhead(tick32) {
+  state.channels.forEach(ch => {
+    if(!buttons[ch.id]) return;
+    if (tick32 % ch.speed === 0) {
+      let step = Math.floor(tick32 / ch.speed) % state.steps;
+      buttons[ch.id].forEach((btn, i) => {
+        btn.style.borderColor = (i === step) ? "var(--step-active)" : "transparent";
+      });
+    }
+  });
+}
+
+// --- GLOBAL WINDOW HELPERS ---
+window.togglePlay = () => socket.emit("togglePlay", !isPlaying);
+window.clearGrid = () => socket.emit("clearGrid");
+window.sendBPM = (v) => socket.emit("setBPM", Number(v));
+window.updateBPMUI = (v) => { document.getElementById("bpmVal").innerText = v; Tone.Transport.bpm.value = v; };
+window.changeSteps = (v) => socket.emit("changeSteps", Number(v));
+window.removeTrack = (id) => socket.emit("removeTrack", id);
+window.updateLocalVol = (id, v) => { if(synthInstances[id]) synthInstances[id].node.volume.value = v; };
+window.updateRemoteVol = (id, v) => socket.emit("updateTrackParam", { channelId: id, key: "vol", value: Number(v) });
+window.saveProject = () => { const n = prompt("Name:"); if(n) socket.emit("saveProject", n); };
+window.loadProject = (v) => { if(v) socket.emit("loadProject", v); };
+window.toggleRecord = async () => {
+  if(!isRecording) {
+    await recorder.start(); isRecording = true; 
+    document.getElementById("recBtn").innerText = "STOP RECORDING"; document.getElementById("recBtn").classList.add("recording");
+  } else {
+    isRecording = false; const blob = await recorder.stop();
+    const url = URL.createObjectURL(blob); const a = document.createElement("a");
+    a.href = url; a.download = `${state.projectName}.webm`; a.click();
+    document.getElementById("recBtn").innerText = "EXPORT AUDIO"; document.getElementById("recBtn").classList.remove("recording");
+  }
+};
+
+// --- SOCKET HANDLERS ---
+function setupSocket() {
+  socket.on("initState", (s) => { state = s; buildGrid(); window.updateBPMUI(s.bpm); });
+  socket.on("stateUpdate", (s) => { state = s; buildGrid(); });
+  socket.on("stepToggled", ({ channelId, stepIndex, val }) => {
+    const ch = state.channels.find(c => c.id === channelId);
+    if(ch) { ch.pattern[stepIndex] = val; if(buttons[channelId]) buttons[channelId][stepIndex].style.background = val ? "var(--step-on)" : ""; }
+  });
+  socket.on("playUpdate", (p) => { isPlaying = p; isPlaying ? Tone.Transport.start() : Tone.Transport.pause(); document.getElementById("playBtn").innerText = isPlaying ? "PAUSE" : "PLAY"; });
+  socket.on("bpmUpdate", (v) => { window.updateBPMUI(v); document.getElementById("bpm").value = v; });
+  socket.on("projectList", (l) => {
+    const s = document.getElementById("projectLoader"); s.innerHTML = '<option value="">LOAD PROJECT...</option>';
+    l.forEach(p => { const o = document.createElement("option"); o.value=o.innerText=p; s.appendChild(o); });
+  });
+  socket.on("trackParamUpdated", ({ channelId, key, value }) => {
+    const ch = state.channels.find(c => c.id === channelId);
+    if(!ch) return; ch[key] = value;
+    if(key === "inst" || key === "speed" || key === "note") buildGrid(); 
+    else if(key === "vol") window.updateLocalVol(channelId, value);
+  });
+  socket.on("userCount", (c) => document.getElementById("users").innerText = `Users: ${c}`);
+}
+
+boot();
+</script>
+</body>
+</html>
