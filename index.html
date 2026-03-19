@@ -17,7 +17,7 @@
     #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(9,9,11,0.98); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
     .start-btn { background: var(--border-highlight); color: var(--text-muted); border: none; padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; }
     .start-btn.ready { background: var(--accent); color: #000; }
-    #debug-log { margin-top: 20px; font-family: monospace; font-size: 11px; color: var(--accent); background: #000; padding: 10px; border-radius: 4px; border: 1px solid var(--border); width: 300px; text-align: left; white-space: pre-wrap; }
+    #debug-log { margin-top: 20px; font-family: monospace; font-size: 11px; color: var(--accent); background: #000; padding: 10px; border-radius: 4px; border: 1px solid var(--border); width: 320px; text-align: left; white-space: pre-wrap; overflow-y: auto; max-height: 200px; }
     .top-bar { background: var(--panel); width: 100%; border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; }
     .transport { background: var(--panel-light); width: 100%; padding: 10px 20px; display: flex; justify-content: center; align-items: center; gap: 15px; border-bottom: 1px solid var(--border); box-sizing: border-box;}
     .channel-rack-container { width: 100%; height: calc(100vh - 110px); background: var(--bg); overflow: auto; padding: 20px; box-sizing: border-box;}
@@ -32,24 +32,24 @@
 <body>
 
 <div id="start-overlay">
-  <h1 style="color:var(--accent)">DISCORD STUDIO PRO</h1>
-  <button id="start-btn" class="start-btn" disabled>WAKING UP SERVER...</button>
-  <div id="debug-log">Status: Initializing...</div>
+  <h1 style="color:var(--accent); font-weight: 300;">STUDIO PRO</h1>
+  <button id="start-btn" class="start-btn" disabled>CONNECTING...</button>
+  <div id="debug-log">Log initialized...</div>
 </div>
 
 <div class="top-bar">
   <div><span id="projectNameDisplay" style="color:var(--accent); font-weight:bold;">Untitled Session</span></div>
-  <div id="currentUserDisplay" style="font-size: 12px;">Syncing user...</div>
+  <div id="currentUserDisplay" style="font-size: 12px; color: var(--text-muted);">Syncing...</div>
 </div>
 
 <div class="transport">
     <button id="playBtn" onclick="window.togglePlay()">PLAY</button>
     <button onclick="window.clearGrid()">CLEAR</button>
     <button id="recBtn" onclick="window.toggleRecord()">EXPORT AUDIO</button>
-    <div style="display:flex; align-items:center; gap:5px; background:#000; padding:5px 10px; border-radius:4px;">
-        <span style="font-size:10px; color:var(--text-muted)">BPM</span>
+    <div style="display:flex; align-items:center; gap:8px; background:rgba(0,0,0,0.3); padding:5px 12px; border-radius:4px; border: 1px solid var(--border);">
+        <span style="font-size:10px; color:var(--text-muted); font-weight: bold;">BPM</span>
         <input id="bpm" type="range" min="60" max="180" value="120" oninput="window.updateBPMUI(this.value)" onchange="window.sendBPM(this.value)"/>
-        <span id="bpmVal" style="font-family:monospace; width:25px;">120</span>
+        <span id="bpmVal" style="font-family:monospace; width:25px; font-size: 12px;">120</span>
     </div>
 </div>
 
@@ -60,55 +60,79 @@ import { DiscordSDK } from "https://cdn.jsdelivr.net/npm/@discord/embedded-app-s
 import { io } from "https://cdn.socket.io/4.7.2/socket.io.esm.min.js";
 import * as Tone from "https://esm.sh/tone@14.8.49";
 
+// We use relative paths for fetch so Discord Proxy works
 const BACKEND_URL = "https://beat-backend-5nnu.onrender.com";
-const REDIRECT_URI = "https://wuhpondiscord.github.io/rendertestfront/";
+const REDIRECT_URI = window.location.origin + window.location.pathname;
 
 let socket, discordSdk, discordUsername = "Producer", masterReverb, recorder;
 let currentStep32 = 0, isPlaying = false, isRecording = false;
 let buttons = {}, synthInstances = {}, state = { bpm: 120, steps: 16, channels: [] };
 
-const debug = (msg) => { document.getElementById("debug-log").innerText += "\n> " + msg; };
+const debug = (msg) => { 
+    const log = document.getElementById("debug-log");
+    log.innerText += "\n> " + msg; 
+    log.scrollTop = log.scrollHeight;
+};
 
-// --- 1. BOOT SEQUENCE WITH RETRY ---
+// --- 1. BOOT SEQUENCE ---
 async function boot() {
   const btn = document.getElementById("start-btn");
+  const searchParams = new URLSearchParams(window.location.search);
+  const isDiscord = searchParams.has('frame_id');
+  
   let clientId = null;
 
-  // Keep trying to reach the server until it wakes up
   while (!clientId) {
     try {
-      debug("Attempting to reach server...");
-      const res = await fetch(`${BACKEND_URL}/api/config`);
+      debug("Waking up Render...");
+      // CRITICAL: We use relative path '/api' so it goes through Discord's URL Mapping
+      const fetchPath = isDiscord ? "/api/config" : `${BACKEND_URL}/api/config`;
+      const res = await fetch(fetchPath);
       const data = await res.json();
       clientId = data.clientId;
     } catch (e) {
-      debug("Server not ready, retrying in 3s...");
-      await new Promise(r => setTimeout(r, 3000));
+      debug("Still waiting for server...");
+      await new Promise(r => setTimeout(r, 4000));
     }
   }
 
-  debug("Server reached! ID: " + clientId.substring(0,5) + "...");
+  debug("Server connected!");
+  
+  // Socket.io usually needs the direct URL because of WebSocket headers
   socket = io(BACKEND_URL, { transports: ["websocket"] });
   setupSocket();
 
-  const searchParams = new URLSearchParams(window.location.search);
-  if (searchParams.has('frame_id')) {
+  if (isDiscord) {
     try {
-      debug("Discord detected. Signing in...");
+      debug("Starting Discord Auth...");
       discordSdk = new DiscordSDK(clientId);
       await discordSdk.ready();
-      const { code } = await discordSdk.commands.authorize({ client_id: clientId, response_type: "code", prompt: "none", scope: ["identify"], redirect_uri: REDIRECT_URI });
-      const tokenRes = await fetch("/api/token", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({code}) });
+      
+      const { code } = await discordSdk.commands.authorize({ 
+        client_id: clientId, 
+        response_type: "code", 
+        prompt: "none", 
+        scope: ["identify"], 
+        redirect_uri: REDIRECT_URI 
+      });
+
+      debug("Exchanging token...");
+      const tokenRes = await fetch("/api/token", { 
+        method: "POST", 
+        headers: {"Content-Type":"application/json"}, 
+        body: JSON.stringify({code}) 
+      });
       const { access_token } = await tokenRes.json();
       const auth = await discordSdk.commands.authenticate({ access_token });
       discordUsername = auth.user.username;
-      debug("Welcome, " + discordUsername);
+      debug("Logged in as " + discordUsername);
     } catch (err) {
       debug("Discord Auth Error: " + err.message);
+      discordUsername = "User_" + Math.floor(Math.random()*99);
     }
   } else {
-    debug("Standard Browser Mode.");
-    discordUsername = "Guest_" + Math.floor(Math.random()*999);
+    debug("Web Browser Mode.");
+    discordUsername = "Web_Producer";
   }
 
   btn.innerText = "ENTER STUDIO";
@@ -120,11 +144,11 @@ async function boot() {
 // --- 2. AUDIO ENGINE ---
 window.initAudio = async () => {
   await Tone.start();
-  masterReverb = new Tone.Reverb({ decay: 2, wet: 0.15 }).toDestination();
+  masterReverb = new Tone.Reverb({ decay: 2.5, wet: 0.2 }).toDestination();
   recorder = new Tone.Recorder();
   masterReverb.connect(recorder);
   document.getElementById("start-overlay").style.display = "none";
-  document.getElementById("currentUserDisplay").innerText = "Logged in: " + discordUsername;
+  document.getElementById("currentUserDisplay").innerText = "Producer: " + discordUsername;
   
   Tone.Transport.scheduleRepeat((time) => {
     state.channels.forEach(ch => {
@@ -140,7 +164,7 @@ window.initAudio = async () => {
   }, "32n");
 };
 
-// --- 3. UI GENERATOR ---
+// --- 3. UI & SYNTHS ---
 const SYNTH_LIBRARY = {
     "Drums": { 
         "Kick - 808": () => new Tone.MembraneSynth(), 
@@ -148,8 +172,8 @@ const SYNTH_LIBRARY = {
         "Hat - Closed": () => new Tone.MetalSynth({ frequency: 250, envelope: { decay: 0.05 } })
     },
     "Keys": {
-        "Grand Piano": () => new Tone.PolySynth(Tone.Synth, { oscillator: { type: "sine" } }),
-        "Electric Tine": () => new Tone.PolySynth(Tone.FMSynth)
+        "Piano": () => new Tone.PolySynth(Tone.Synth, { oscillator: { type: "sine" } }),
+        "Electric": () => new Tone.PolySynth(Tone.FMSynth)
     }
 };
 
@@ -157,11 +181,10 @@ function buildGrid() {
   const rack = document.getElementById("rack");
   rack.innerHTML = ""; buttons = {};
   
-  // Sync instruments
   state.channels.forEach(ch => {
     if (!synthInstances[ch.id] || synthInstances[ch.id].type !== ch.inst) {
       if (synthInstances[ch.id]) synthInstances[ch.id].node.dispose();
-      let gen = SYNTH_LIBRARY["Keys"]["Grand Piano"];
+      let gen = SYNTH_LIBRARY["Keys"]["Piano"];
       for (const cat in SYNTH_LIBRARY) { if (SYNTH_LIBRARY[cat][ch.inst]) gen = SYNTH_LIBRARY[cat][ch.inst]; }
       synthInstances[ch.id] = { type: ch.inst, node: gen().connect(masterReverb) };
     }
@@ -169,11 +192,13 @@ function buildGrid() {
 
     const row = document.createElement("div"); row.className = "row";
     const ctrl = document.createElement("div"); ctrl.className = "track-controls";
-    ctrl.innerHTML = `<span style="font-size:10px;color:var(--accent)">${ch.author}</span>
-      <select onchange="window.upParam('${ch.id}', 'inst', this.value)" style="width:100%">${Object.keys(SYNTH_LIBRARY).map(cat => `<optgroup label="${cat}">${Object.keys(SYNTH_LIBRARY[cat]).map(i => `<option ${ch.inst===i?'selected':''}>${i}</option>`)}</optgroup>`)}</select>
-      <div style="display:flex;gap:5px;margin-top:5px">
-        <input type="range" min="-30" max="5" value="${ch.vol}" onchange="window.upParam('${ch.id}', 'vol', Number(this.value))" style="width:70%"/>
-        <button onclick="window.removeTrack('${ch.id}')" style="color:var(--danger)">X</button>
+    ctrl.innerHTML = `<span style="font-size:9px;color:var(--accent);font-weight:bold;">${ch.author}</span>
+      <select onchange="window.upParam('${ch.id}', 'inst', this.value)" style="width:100%;margin-top:2px;">
+        ${Object.keys(SYNTH_LIBRARY).map(cat => `<optgroup label="${cat}">${Object.keys(SYNTH_LIBRARY[cat]).map(i => `<option ${ch.inst===i?'selected':''}>${i}</option>`)}</optgroup>`)}
+      </select>
+      <div style="display:flex;align-items:center;gap:5px;margin-top:5px">
+        <input type="range" min="-30" max="5" value="${ch.vol}" onchange="window.upParam('${ch.id}', 'vol', Number(this.value))" style="flex:1"/>
+        <button onclick="window.removeTrack('${ch.id}')" style="color:var(--danger);border:none;background:transparent;cursor:pointer;">✕</button>
       </div>`;
     row.appendChild(ctrl);
 
@@ -207,6 +232,17 @@ window.upParam = (id, key, value) => socket.emit("updateTrackParam", { channelId
 window.removeTrack = (id) => socket.emit("removeTrack", id);
 window.sendBPM = (v) => socket.emit("setBPM", Number(v));
 window.updateBPMUI = (v) => { document.getElementById("bpmVal").innerText = v; Tone.Transport.bpm.value = v; };
+window.toggleRecord = async () => {
+  if(!isRecording) {
+    await recorder.start(); isRecording = true; 
+    document.getElementById("recBtn").innerText = "STOP RECORDING"; document.getElementById("recBtn").classList.add("recording");
+  } else {
+    isRecording = false; const blob = await recorder.stop();
+    const url = URL.createObjectURL(blob); const a = document.createElement("a");
+    a.href = url; a.download = "studio_export.webm"; a.click();
+    document.getElementById("recBtn").innerText = "EXPORT AUDIO"; document.getElementById("recBtn").classList.remove("recording");
+  }
+};
 
 function setupSocket() {
   socket.on("initState", (s) => { state = s; buildGrid(); window.updateBPMUI(s.bpm); });
@@ -215,6 +251,10 @@ function setupSocket() {
   socket.on("stepToggled", ({ channelId, stepIndex, val }) => {
     const ch = state.channels.find(c => c.id === channelId);
     if(ch) { ch.pattern[stepIndex] = val; if(buttons[channelId]) buttons[channelId][stepIndex].style.background = val ? "var(--step-on)" : ""; }
+  });
+  socket.on("trackParamUpdated", ({ channelId, key, value }) => {
+    const ch = state.channels.find(c => c.id === channelId);
+    if(ch) { ch[key] = value; if(key === "inst") buildGrid(); }
   });
 }
 
