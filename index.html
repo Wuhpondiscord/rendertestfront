@@ -575,28 +575,31 @@
 // ═══════════════════════════════════════════════════════════════
 //  CONFIG — environment-aware routing
 //  ─────────────────────────────────────────────────────────────
-//  Per Discord docs, Activities run on {clientId}.discordsays.com
-//  URL mapping:  Prefix /api  →  beat-backend-5nnu.onrender.com
-//  Discord forwards the FULL path unchanged, so:
-//    /api/config       → Render /api/config       ✓
-//    /api/token        → Render /api/token        ✓
-//    /api/socket.io/*  → Render /api/socket.io/*  ✓ (server listens at this path)
+//  Discord's CSP only allows connections to:
+//    https://{clientId}.discordsays.com/.proxy/
+//    wss://{clientId}.discordsays.com/.proxy/
 //
-//  External CDN URLs (cdnjs, jsdelivr etc.) are BLOCKED by Discord's CSP.
-//  socket.io must be loaded from our own backend via the proxy.
+//  URL mapping in Developer Portal:
+//    Prefix /api  →  beat-backend-5nnu.onrender.com
+//
+//  So ALL requests inside Discord MUST use /.proxy/api/...
+//    /.proxy/api/config       → Render /api/config       ✓
+//    /.proxy/api/token        → Render /api/token        ✓
+//    /.proxy/api/socket.io/*  → Render /api/socket.io/*  ✓
+//
+//  In browser: hit Render directly (no CSP restriction).
 // ═══════════════════════════════════════════════════════════════
 const IN_DISCORD  = location.hostname.endsWith(".discordsays.com");
 const RENDER_URL  = "https://beat-backend-5nnu.onrender.com";
-// Socket.io server listens at /api/socket.io (set in Server constructor path option).
-// Client uses this same path in both environments.
-const SOCKET_PATH = "/api/socket.io";
-// API_BASE for fetch calls — includes /api so routes match server exactly.
-const API_BASE    = IN_DISCORD ? "/api" : RENDER_URL + "/api";
-// Socket.io client script URL:
-// In Discord: served through proxy from our backend (/api/socket.io/socket.io.js)
-// In browser: loaded from CDN (external URLs allowed outside Discord)
+
+// All paths use /.proxy/api/... in Discord, direct URL in browser
+const PROXY_BASE  = "/.proxy/api";
+const API_BASE    = IN_DISCORD ? PROXY_BASE       : RENDER_URL + "/api";
+const SOCKET_PATH = IN_DISCORD ? "/.proxy/api/socket.io" : "/api/socket.io";
+
+// socket.io script: served through proxy in Discord, CDN in browser
 const SOCKETIO_SCRIPT = IN_DISCORD
-  ? "/api/socket.io/socket.io.js"
+  ? "/.proxy/api/socket.io/socket.io.js"
   : "https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js";
 
 const W = window;
@@ -982,12 +985,13 @@ async function boot(){
   // ── Step 4: connect socket ──────────────────────────────────────────────
   // In Discord: patchUrlMappings is now active, so io(RENDER_URL, ...) will
   // have its connection automatically rewritten through the /api proxy.
-  // We still pass RENDER_URL as the target — patchUrlMappings handles the rest.
+  // In Discord: connect to same origin (no URL), path /.proxy/api/socket.io routes through Discord proxy
+  // In browser: connect directly to Render
   ovMsg("CONNECTING TO SERVER...", 50);
   if(typeof io !== "undefined"){
     try{
       socket = IN_DISCORD
-        ? io(RENDER_URL, { path:SOCKET_PATH, transports:["polling","websocket"], timeout:15000, reconnectionAttempts:20, reconnectionDelay:2000 })
+        ? io({ path:SOCKET_PATH, transports:["polling","websocket"], timeout:15000, reconnectionAttempts:20, reconnectionDelay:2000 })
         : io(RENDER_URL, { path:SOCKET_PATH, transports:["websocket","polling"], timeout:15000, reconnectionAttempts:20, reconnectionDelay:2000 });
       setupSocket();
       console.log("Socket init OK");
