@@ -13,68 +13,32 @@
       --step-off-1: #252530; --step-off-2: #2e2e3b;
       --step-on: #00d4ff; --step-active: #ffffff;
     }
-    
-    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; user-select: none; height: 100vh; overflow: hidden; }
-
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; user-select: none; height: 100vh; overflow: hidden; }
     #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(9,9,11,0.98); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
-    #start-overlay h1 { color: var(--accent); margin-bottom: 20px; font-weight: 300; letter-spacing: 2px;}
-    
-    .start-btn { background: var(--border-highlight); color: var(--text-muted); border: none; padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+    .start-btn { background: var(--border-highlight); color: var(--text-muted); border: none; padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; }
     .start-btn.ready { background: var(--accent); color: #000; }
-    
     #debug-log { margin-top: 20px; font-family: monospace; font-size: 11px; color: var(--accent); background: #000; padding: 10px; border-radius: 4px; border: 1px solid var(--border); width: 320px; text-align: left; white-space: pre-wrap; overflow-y: auto; max-height: 200px; }
-
     .top-bar { background: var(--panel); width: 100%; border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; }
-    .project-name { font-weight: 600; font-size: 14px; color: var(--accent); }
-    
     .transport { background: var(--panel-light); width: 100%; padding: 10px 20px; display: flex; justify-content: center; align-items: center; gap: 15px; border-bottom: 1px solid var(--border); box-sizing: border-box;}
-    .status-area { position: absolute; left: 20px; display: flex; align-items: center; gap: 15px; }
-    #status { font-size: 11px; font-weight: bold; color: var(--text-muted); padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px;}
-    
-    button, select { background: var(--panel); color: var(--text); border: 1px solid var(--border); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; outline: none; }
-    button:hover, select:hover { background: var(--border-highlight); }
-    #playBtn { background: var(--accent); color: #000; border: none; width: 80px;}
-    #recBtn { background: var(--panel); color: var(--record); border-color: var(--record); width: 140px; }
-    #recBtn.recording { background: var(--record); color: #fff; animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-
-    .control-group { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.3); padding: 4px 12px; border-radius: 4px; border: 1px solid var(--border); }
-    .control-group label { font-size: 10px; color: var(--text-muted); font-weight: bold; }
-    input[type="range"] { accent-color: var(--accent); height: 4px; background: var(--border); border-radius: 2px; outline: none; cursor: pointer; }
-
     .channel-rack-container { width: 100%; height: calc(100vh - 110px); background: var(--bg); overflow: auto; padding: 20px; box-sizing: border-box;}
     .row { display: flex; align-items: stretch; margin-bottom: 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; }
-
     .track-controls { position: sticky; left: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; background: var(--panel); padding: 10px 15px; z-index: 10; border-right: 2px solid var(--border); width: 280px; box-sizing: border-box;}
-    .track-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-    .track-author { font-size: 9px; color: var(--text-muted); font-weight: bold; text-transform: uppercase;}
-    .delete-btn { background: transparent; color: var(--text-muted); border: none; cursor: pointer; font-size: 14px;}
-    
-    .track-row { display: flex; align-items: center; gap: 5px; width: 100%; margin-top: 2px;}
-    .inst-select { flex: 1; font-size: 11px; height: 28px;}
-    .note-select { width: 55px; font-size: 11px; height: 28px;}
-    .vol-container { display: flex; align-items: center; gap: 5px; flex: 1; background: var(--bg); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border);}
-    .vol-slider { width: 100%; }
-
     .steps { display: flex; gap: 2px; padding: 10px 20px;}
     .step-btn { width: 32px; height: 60px; border-radius: 3px; border: 2px solid transparent; cursor: pointer; flex-shrink: 0; }
     .step-btn.beat-0 { background: var(--step-off-1); }
     .step-btn.beat-1 { background: var(--step-off-2); }
-    
-    .add-track-btn { margin-top: 10px; background: transparent; border: 1px dashed var(--border-highlight); color: var(--text-muted); padding: 15px; font-size: 14px; width: 280px; cursor: pointer; }
-    .add-track-btn:hover { border-color: var(--accent); color: var(--accent); }
   </style>
 </head>
 <body>
 
 <div id="start-overlay">
-  <h1>STUDIO PRO</h1>
-  <button id="start-btn" class="start-btn" disabled>CONNECTING TO SERVER...</button>
+  <h1 style="color:var(--accent); font-weight: 300;">STUDIO PRO</h1>
+  <button id="start-btn" class="start-btn" disabled>CONNECTING...</button>
   <div id="debug-log">Status: Starting bootstrap...</div>
 </div>
 
 <div class="top-bar">
-  <div><span class="project-name" id="projectNameDisplay">Untitled Session</span></div>
+  <div><span id="projectNameDisplay" style="color:var(--accent); font-weight:bold;">Untitled Session</span></div>
   <div id="currentUserDisplay" style="font-size: 12px; color: var(--text-muted);">Syncing user...</div>
 </div>
 
@@ -84,7 +48,7 @@
     <button onclick="window.clearGrid()">CLEAR</button>
     <button id="recBtn" onclick="window.toggleRecord()">EXPORT AUDIO</button>
     <div class="control-group">
-        <label>BPM</label>
+        <label style="font-size:10px; color:var(--text-muted); font-weight:bold;">BPM</label>
         <input id="bpm" type="range" min="60" max="180" value="120" oninput="window.updateBPMUI(this.value)" onchange="window.sendBPM(this.value)"/>
         <span id="bpmVal" style="font-family:monospace; width:25px; font-size: 12px;">120</span>
     </div>
@@ -93,19 +57,15 @@
 <div class="channel-rack-container"><div id="rack"></div></div>
 
 <script type="module">
-// --- ESM IMPORTS (Safer for Discord) ---
 import { DiscordSDK } from "https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.2.0/+esm";
 import { io } from "https://cdn.socket.io/4.7.2/socket.io.esm.min.js";
 import * as Tone from "https://esm.sh/tone@14.8.49";
 
 const BACKEND_URL = "https://beat-backend-5nnu.onrender.com";
-const REDIRECT_URI = "https://127.0.0.1";
 
 let socket, discordSdk, discordUsername = "Producer", masterReverb, recorder;
 let currentStep32 = 0, isPlaying = false, isRecording = false;
 let buttons = {}, synthInstances = {}, state = { bpm: 120, steps: 16, channels: [] };
-
-const NOTES = ["C1","D1","E1","F1","G1","A1","B1", "C2","D2","E2","F2","G2","A2","B2", "C3","D3","E3","F3","G3","A3","B3", "C4","D4","E4","F4","G4","A4","B4", "C5","D5","E5","F5","G5","A5","B5"];
 
 const debug = (msg) => { 
     const log = document.getElementById("debug-log");
@@ -113,7 +73,6 @@ const debug = (msg) => {
     log.scrollTop = log.scrollHeight;
 };
 
-// --- 1. BOOTSTRAP ---
 async function boot() {
   const btn = document.getElementById("start-btn");
   const searchParams = new URLSearchParams(window.location.search);
@@ -121,56 +80,58 @@ async function boot() {
   
   let clientId = null;
 
-  // Reach server config (Wakes up Render)
   while (!clientId) {
     try {
       debug("Waking up server...");
-      const fetchPath = isDiscord ? "/api/config" : `${BACKEND_URL}/api/config`;
-      const res = await fetch(fetchPath);
+      // Fetch ClientID using absolute URL to ensure we hit Render regardless of proxy status
+      const res = await fetch(`${BACKEND_URL}/api/config`);
       const data = await res.json();
       clientId = data.clientId;
     } catch (e) {
-      debug("Retrying connection in 3s...");
+      debug("Server not responding, retrying...");
       await new Promise(r => setTimeout(r, 3000));
     }
   }
 
-  debug("Connected. ID: " + clientId.substring(0,6));
   socket = io(BACKEND_URL, { transports: ["websocket"] });
   setupSocket();
 
   if (isDiscord) {
     try {
-      debug("Discord Auth Sequence...");
+      debug("Discord SDK Handshake...");
       discordSdk = new DiscordSDK(clientId);
       await discordSdk.ready();
       
+      // Step 1: Authorize
+      // NOTE: We omit redirect_uri here. Discord uses the placeholder internally.
       const { code } = await discordSdk.commands.authorize({ 
         client_id: clientId, 
         response_type: "code", 
         state: "", prompt: "none", 
-        scope: ["identify", "guilds"],
-        redirect_uri: REDIRECT_URI 
+        scope: ["identify", "guilds"]
       });
 
       debug("Exchanging Token...");
-      const tokenRes = await fetch("/api/token", { 
+      // We use the absolute URL for the token exchange to bypass proxy lag
+      const tokenRes = await fetch(`${BACKEND_URL}/api/token`, { 
         method: "POST", 
         headers: {"Content-Type":"application/json"}, 
         body: JSON.stringify({code}) 
       });
       const tokenData = await tokenRes.json();
       
+      if (tokenData.error) throw new Error(tokenData.error);
+
       const auth = await discordSdk.commands.authenticate({ access_token: tokenData.access_token });
       discordUsername = auth.user.username;
-      debug("Logged in as " + discordUsername);
+      debug("Success! Welcome " + discordUsername);
     } catch (err) {
-      debug("Auth Fallback: " + err.message);
+      debug("Auth Error: " + err.message);
       discordUsername = "User_" + Math.floor(Math.random()*99);
     }
   } else {
     debug("Web Browser Mode.");
-    discordUsername = "Producer_Guest";
+    discordUsername = "Web_User";
   }
 
   btn.innerText = "ENTER STUDIO";
@@ -179,7 +140,6 @@ async function boot() {
   btn.onclick = window.initAudio;
 }
 
-// --- 2. AUDIO ENGINE ---
 window.initAudio = async () => {
   await Tone.start();
   masterReverb = new Tone.Reverb({ decay: 2.5, wet: 0.15 }).toDestination();
@@ -202,8 +162,6 @@ window.initAudio = async () => {
   }, "32n");
 };
 
-// --- 3. SYNTH LIBRARY ---
-const p = (type, opts) => new Tone.PolySynth(type, opts);
 const SYNTH_LIBRARY = {
     "Drums": { 
         "Kick - 808": () => new Tone.MembraneSynth(), 
@@ -211,12 +169,8 @@ const SYNTH_LIBRARY = {
         "Hat - Closed": () => new Tone.MetalSynth({ frequency: 250, envelope: { decay: 0.05 } })
     },
     "Keys": {
-        "Piano": () => p(Tone.Synth, { oscillator: { type: "sine" }, envelope: { release: 1 } }),
-        "Rhodes": () => p(Tone.FMSynth, { harmonicity: 2, modulationIndex: 1.5 })
-    },
-    "Bass": {
-        "Sub Sine": () => p(Tone.Synth, { oscillator: { type: "sine" } }),
-        "Acid Saw": () => p(Tone.MonoSynth, { oscillator: { type: "sawtooth" } })
+        "Piano": () => new Tone.PolySynth(Tone.Synth, { oscillator: { type: "sine" } }),
+        "Rhodes": () => new Tone.PolySynth(Tone.FMSynth, { harmonicity: 2 })
     }
 };
 
@@ -247,11 +201,10 @@ function buildGrid() {
       const b = document.createElement("button"); b.className = `step-btn beat-${Math.floor(i/4)%2}`;
       b.style.background = active ? "var(--step-on)" : "";
       b.onclick = () => socket.emit("toggleStep", { channelId: ch.id, stepIndex: i, val: !active });
-      steps.appendChild(b); buttons[ch.id].push(b);
+      steps.appendChild(b); buttons[ch.id].push(btn);
     });
     row.appendChild(steps); rack.appendChild(row);
   });
-
   const add = document.createElement("button"); add.className = "add-track-btn"; add.innerText = "+ ADD TRACK";
   add.onclick = () => socket.emit("addTrack", discordUsername);
   rack.appendChild(add);
@@ -278,7 +231,6 @@ function updatePlayhead(tick) {
   });
 }
 
-// --- GLOBALS ---
 window.togglePlay = () => socket.emit("togglePlay", !isPlaying);
 window.clearGrid = () => socket.emit("clearGrid");
 window.sendBPM = (v) => socket.emit("setBPM", Number(v));
