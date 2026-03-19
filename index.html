@@ -421,7 +421,7 @@
     /* ── DEBUG LOG PANEL ───────────────────────────────────────── */
     #log-panel {
       position: fixed; bottom: 0; left: 0; right: 0;
-      height: 200px; z-index: 9996;
+      height: 200px; z-index: 10000; /* above overlay (9999) so always accessible */
       background: rgba(4,4,8,.97);
       border-top: 1px solid var(--bhi);
       display: none; flex-direction: column;
@@ -493,6 +493,12 @@
   <div class="ov-bar"><div class="ov-fill" id="ov-fill"></div></div>
   <div id="ov-msg">INITIALIZING...</div>
   <button id="enter-btn" disabled>CONNECTING...</button>
+  <button onclick="W.toggleLog()" style="
+    margin-top:18px;
+    font-family:'Space Mono',monospace;font-size:8px;letter-spacing:2px;
+    background:transparent;color:#35355a;border:1px solid #1e1e36;
+    padding:5px 14px;border-radius:3px;cursor:pointer;
+  " id="ov-log-btn">LOGS</button>
 </div>
 
 <!-- AUDIO UNLOCK BANNER (shown when AudioContext suspended post-enter) -->
@@ -569,31 +575,29 @@
 // ═══════════════════════════════════════════════════════════════
 //  CONFIG — environment-aware routing
 //  ─────────────────────────────────────────────────────────────
-//  Discord developer portal URL mapping:
-//    Prefix /api  →  beat-backend-5nnu.onrender.com
+//  Per Discord docs, Activities run on {clientId}.discordsays.com
+//  URL mapping:  Prefix /api  →  beat-backend-5nnu.onrender.com
+//  Discord forwards the FULL path unchanged, so:
+//    /api/config       → Render /api/config       ✓
+//    /api/token        → Render /api/token        ✓
+//    /api/socket.io/*  → Render /api/socket.io/*  ✓ (server listens at this path)
 //
-//  Discord does NOT strip the prefix before forwarding.
-//  It appends the full path to the target host. So:
-//    /api/token  →  beat-backend-5nnu.onrender.com/api/token  ✓
-//    /api/config →  beat-backend-5nnu.onrender.com/api/config ✓
-//
-//  IN DISCORD:  use relative paths, no host needed.
-//    fetch("/api/config")  → Discord proxy → Render /api/config ✓
-//    fetch("/api/token")   → Discord proxy → Render /api/token  ✓
-//    io({ path:"/api/socket.io" }) → Render /socket.io ✓
-//
-//  IN BROWSER:  hit Render directly.
-//    fetch("https://...render.com/api/config") ✓
+//  External CDN URLs (cdnjs, jsdelivr etc.) are BLOCKED by Discord's CSP.
+//  socket.io must be loaded from our own backend via the proxy.
 // ═══════════════════════════════════════════════════════════════
 const IN_DISCORD  = location.hostname.endsWith(".discordsays.com");
 const RENDER_URL  = "https://beat-backend-5nnu.onrender.com";
-// The socket.io SERVER is configured with path "/api/socket.io".
-// Both Discord (via proxy) and direct browser connections use this same path.
-// Discord: /api/socket.io → proxy forwards to Render → hits /api/socket.io ✓
-// Browser: connects to RENDER_URL with path /api/socket.io directly      ✓
+// Socket.io server listens at /api/socket.io (set in Server constructor path option).
+// Client uses this same path in both environments.
 const SOCKET_PATH = "/api/socket.io";
-
-const API_BASE = IN_DISCORD ? "/api" : RENDER_URL + "/api";
+// API_BASE for fetch calls — includes /api so routes match server exactly.
+const API_BASE    = IN_DISCORD ? "/api" : RENDER_URL + "/api";
+// Socket.io client script URL:
+// In Discord: served through proxy from our backend (/api/socket.io/socket.io.js)
+// In browser: loaded from CDN (external URLs allowed outside Discord)
+const SOCKETIO_SCRIPT = IN_DISCORD
+  ? "/api/socket.io/socket.io.js"
+  : "https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js";
 
 const W = window;
 
@@ -656,16 +660,17 @@ try { (function(){
       el.scrollTop=99999999;
     }catch(e){}
 
-    // update button colour
+    // update button colour on both the overlay button and the transport button
     try{
       var lv = (level==="err"?2:level==="warn"?1:0);
       if(lv>worstLevel){
         worstLevel=lv;
         if(!logOpen){
-          var btn=document.getElementById("log-toggle");
-          if(btn){
-            btn.style.color      = lv===2?"#ff3060":"#ffb800";
-            btn.style.borderColor= lv===2?"#ff3060":"#ffb800";
+          var clr = lv===2?"#ff3060":"#ffb800";
+          var ids = ["log-toggle","ov-log-btn"];
+          for(var bi=0;bi<ids.length;bi++){
+            var btn=document.getElementById(ids[bi]);
+            if(btn){ btn.style.color=clr; btn.style.borderColor=clr; }
           }
         }
       }
@@ -696,10 +701,12 @@ try { (function(){
       var panel=document.getElementById("log-panel");
       if(panel) panel.className=logOpen?"open":"";
       if(logOpen){
-        // reset button colour
         worstLevel=0;
-        var btn=document.getElementById("log-toggle");
-        if(btn){ btn.style.color=""; btn.style.borderColor=""; }
+        var ids=["log-toggle","ov-log-btn"];
+        for(var bi=0;bi<ids.length;bi++){
+          var btn=document.getElementById(ids[bi]);
+          if(btn){ btn.style.color=""; btn.style.borderColor=""; }
+        }
       }
     }catch(e){ _error("toggleLog err",e); }
   };
@@ -920,87 +927,89 @@ async function doUnlockAudio(){
 async function boot(){
   ovMsg("LOADING SOCKET.IO...", 15);
 
-  // Load socket.io from CDN — the Discord proxy path "/api/socket.io/socket.io.js"
-  // can't be used as a <script src> because it's a relative path that the browser
-  // would try to load from GitHub Pages (the frontend host), not the backend.
-  // CDN is the correct approach when using Discord's URL proxy mappings.
-  await new Promise(res=>{
-    const s = document.createElement("script");
-    s.src = "https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js";
-    s.onload = res;
-    s.onerror = res; // continue even if CDN load fails
-    document.head.appendChild(s);
-  });
+  // In Discord: load socket.io from our OWN backend through the /api proxy.
+  // External CDN URLs are blocked by Discord's Activity CSP per the networking docs.
+  // In browser: CDN is fine since there's no CSP restriction.
+  await Promise.race([
+    new Promise(res=>{
+      const s = document.createElement("script");
+      s.src = SOCKETIO_SCRIPT;
+      s.onload = res;
+      s.onerror = res; // continue on failure — we handle undefined io below
+      document.head.appendChild(s);
+    }),
+    new Promise(res=>setTimeout(res, 6000)) // 6s hard timeout
+  ]);
 
   ovMsg("CONNECTING TO SERVER...", 35);
-  try{
-    // CRITICAL: Discord's Activity proxy does NOT support WebSocket upgrades.
-    // It only proxies standard HTTP requests (including long-polling).
-    // Using "websocket" transport inside Discord causes the silent failures seen in logs.
-    // Fix: force "polling" only when inside Discord; use websocket-first outside.
-    const discordTransports = ["polling"];          // Discord proxy: HTTP only
-    const browserTransports = ["websocket", "polling"]; // Direct: prefer WS
-
-    socket = IN_DISCORD
-      ? io({
-          path      : SOCKET_PATH,
-          transports: discordTransports,
-          timeout   : 10000,
-          reconnectionAttempts: 10,
-          reconnectionDelay   : 1000,
-        })
-      : io(RENDER_URL, {
-          path      : SOCKET_PATH,
-          transports: browserTransports,
-          timeout   : 10000,
-          reconnectionAttempts: 10,
-          reconnectionDelay   : 1000,
-        });
-    setupSocket();
-  }catch(e){ console.warn("Socket error:", e); }
+  if(typeof io !== "undefined"){
+    try{
+      // Discord's proxy only supports HTTP (polling), not raw WebSocket upgrades.
+      // In browser, prefer WebSocket for performance.
+      socket = IN_DISCORD
+        ? io({ path:SOCKET_PATH, transports:["polling"], timeout:10000, reconnectionAttempts:10, reconnectionDelay:1000 })
+        : io(RENDER_URL, { path:SOCKET_PATH, transports:["websocket","polling"], timeout:10000, reconnectionAttempts:10, reconnectionDelay:1000 });
+      setupSocket();
+    }catch(e){ console.warn("Socket init error:", e); }
+  } else {
+    console.warn("socket.io failed to load — no real-time sync");
+  }
 
   ovMsg("FETCHING CONFIG...", 55);
   let clientId = null;
   try{
-    // API_BASE already includes /api, so just append the route name.
-    // Discord:  "/api/config"                    → proxy → Render /api/config ✓
-    // Browser:  "https://...render.com/api/config" → direct                  ✓
     const r = await fetch(API_BASE + "/config");
     const j = await r.json();
     clientId = j.clientId;
   }catch(e){ console.warn("Config fetch failed:", e); }
 
   // ── Discord SDK auth ────────────────────────────────────────
-  // ONLY runs when actually inside Discord (frame_id query param present).
-  const inDiscord = new URLSearchParams(location.search).has("frame_id");
-  if(inDiscord && clientId){
+  // Per Discord docs, Activities always run on *.discordsays.com.
+  // Use IN_DISCORD (hostname check) as the reliable gate — not frame_id
+  // which isn't always present in the query string.
+  if(IN_DISCORD && clientId){
     ovMsg("DISCORD AUTH...", 75);
     try{
-      const { DiscordSDK } = await import("https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.2.0/+esm");
+      // Use the latest embedded-app-sdk from jsdelivr (allowed by Discord's CSP
+      // as jsdelivr is a trusted CDN — or use the version served by Discord itself)
+      const { DiscordSDK } = await import("https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@2/+esm");
       discordSdk = new DiscordSDK(clientId);
 
-      // ready() can stall on some Discord client versions — cap at 8s
+      // ready() completes the handshake with the Discord client.
+      // Give it 10s before falling back to guest mode.
       await Promise.race([
         discordSdk.ready(),
-        new Promise((_,rej)=>setTimeout(()=>rej(new Error("SDK ready timeout")),8000))
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error("SDK ready timeout")),10000))
       ]);
+      console.log("Discord SDK ready");
 
+      // Authorize — request the identify scope to get the user's name.
       const { code } = await discordSdk.commands.authorize({
-        client_id: clientId, response_type: "code",
-        prompt: "none", scope: ["identify"],
+        client_id    : clientId,
+        response_type: "code",
+        prompt       : "none",
+        scope        : ["identify"],
       });
 
+      // Exchange the code for an access_token via our backend.
+      // Per Discord docs, this MUST happen server-side to keep client_secret safe.
       const tr = await fetch(API_BASE + "/token", {
-        method: "POST",
-        headers: { "Content-Type":"application/json" },
-        body: JSON.stringify({ code }),
+        method : "POST",
+        headers: { "Content-Type": "application/json" },
+        body   : JSON.stringify({ code }),
       });
-      const { access_token } = await tr.json();
-      const auth = await discordSdk.commands.authenticate({ access_token });
+      const tokenData = await tr.json();
+      if(!tokenData.access_token) throw new Error("No access_token in response");
+
+      // Authenticate with the Discord client using the token.
+      const auth = await discordSdk.commands.authenticate({ access_token: tokenData.access_token });
+      if(!auth) throw new Error("authenticate() returned null");
+
       username = auth.user.global_name || auth.user.username;
       userId   = auth.user.id;
+      console.log("Authenticated as:", username);
     }catch(e){
-      // Non-fatal — continue as guest
+      // Non-fatal — app still works, user shows as "Producer"
       console.warn("Discord auth error (guest mode):", e);
     }
   }
@@ -1012,6 +1021,19 @@ async function boot(){
   btn.disabled = false;
   btn.onclick = enterStudio;
 }
+
+// Safety net: if boot() stalls for any reason, force-show the Enter button after 12s
+setTimeout(function(){
+  var btn = document.getElementById("enter-btn");
+  if(btn && btn.disabled){
+    console.warn("boot() timed out — force-enabling Enter button");
+    btn.textContent = "ENTER STUDIO";
+    btn.classList.add("ready");
+    btn.disabled = false;
+    btn.onclick = enterStudio;
+    ovMsg("READY (timeout)", 100);
+  }
+}, 12000);
 
 // ═══════════════════════════════════════════════════════════════
 //  ENTER STUDIO
