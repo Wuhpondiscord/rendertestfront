@@ -8,160 +8,415 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 
   <style>
     :root {
-      --bg:        #07070b;
-      --panel:     #10101a;
-      --panel-lt:  #181828;
-      --hover:     #1e1e30;
-      --text:      #dddde8;
-      --muted:     #6a6a88;
-      --dim:       #38385a;
-      --border:    #20203a;
-      --bhi:       #32325a;
-      --accent:    #00d4ff;
-      --ad:        rgba(0,212,255,.13);
-      --ag:        rgba(0,212,255,.4);
-      --danger:    #ff3060;
-      --rec:       #ff4444;
-      --recg:      rgba(255,68,68,.45);
-      --ok:        #00e5a0;
-      --warn:      #ffb800;
-      --s0:        #16162a;
-      --s1:        #1c1c30;
-      --mono:      'Space Mono', monospace;
-      --sans:      'DM Sans', sans-serif;
+      --bg:       #07070b;
+      --panel:    #0f0f1a;
+      --panel-lt: #161624;
+      --hover:    #1c1c2e;
+      --text:     #dddde8;
+      --muted:    #6868888;
+      --dim:      #35355a;
+      --border:   #1e1e36;
+      --bhi:      #2e2e50;
+      --accent:   #00d4ff;
+      --ad:       rgba(0,212,255,.12);
+      --ag:       rgba(0,212,255,.35);
+      --danger:   #ff3060;
+      --rec:      #ff4040;
+      --recg:     rgba(255,64,64,.4);
+      --ok:       #00e5a0;
+      --warn:     #ffb800;
+      --s0:       #14142a;
+      --s1:       #1a1a30;
+      --mono:     'Space Mono', monospace;
+      --sans:     'DM Sans', sans-serif;
+      --ctrl-w:   318px;
     }
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    body{background:var(--bg);color:var(--text);font-family:var(--sans);display:flex;flex-direction:column;height:100vh;overflow:hidden;user-select:none}
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* ── OVERLAY ─────────────────────────────────────────── */
-    #overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px;z-index:9999}
-    .ov-logo{font-family:var(--mono);font-size:24px;letter-spacing:8px;color:var(--accent);text-shadow:0 0 40px var(--ag);margin-bottom:6px}
-    .ov-sub{font-family:var(--mono);font-size:9px;letter-spacing:5px;color:var(--muted);margin-bottom:28px}
-    .ov-bar{width:200px;height:2px;background:var(--border);border-radius:1px;overflow:hidden;margin-bottom:8px}
-    .ov-fill{height:100%;width:0;background:var(--accent);box-shadow:0 0 8px var(--ag);transition:width .35s}
-    #ov-msg{font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--muted);margin-bottom:22px;min-height:18px}
-    #enter-btn{font-family:var(--mono);font-size:11px;letter-spacing:3px;background:var(--border);color:var(--muted);border:1px solid var(--bhi);padding:11px 34px;border-radius:3px;cursor:not-allowed;transition:all .2s}
-    #enter-btn.ready{background:var(--accent);color:#000;border-color:var(--accent);cursor:pointer;box-shadow:0 0 22px var(--ag)}
-    #enter-btn.ready:hover{transform:scale(1.04)}
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+    }
 
-    /* ── TOP BAR ─────────────────────────────────────────── */
-    .topbar{flex-shrink:0;height:44px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 14px}
-    .tbl{display:flex;align-items:center;gap:7px}
-    .proj-name{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:1px;margin-right:4px}
-    .tbtn{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;background:transparent;color:var(--muted);border:1px solid var(--border);padding:5px 11px;border-radius:3px;cursor:pointer;transition:all .13s;outline:none}
-    .tbtn:hover{background:var(--hover);color:var(--text);border-color:var(--bhi)}
-    .tbtn.hi{border-color:var(--accent);color:var(--accent)}
-    .tbtn.hi:hover{background:var(--ad)}
-    #proj-loader{font-family:var(--mono);font-size:9px;letter-spacing:1px;background:var(--panel);color:var(--muted);border:1px solid var(--border);padding:5px 8px;border-radius:3px;cursor:pointer;outline:none}
-    #user-disp{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px}
+    /* ── OVERLAY ───────────────────────────────────────────────── */
+    #overlay {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center; gap: 0;
+      z-index: 9999;
+    }
+    .ov-logo {
+      font-family: var(--mono); font-size: 22px; font-weight: 700;
+      letter-spacing: 7px; color: var(--accent);
+      text-shadow: 0 0 40px var(--ag);
+      margin-bottom: 6px;
+    }
+    .ov-sub {
+      font-family: var(--mono); font-size: 9px; letter-spacing: 5px;
+      color: #44446a; margin-bottom: 32px;
+    }
+    .ov-bar {
+      width: 200px; height: 2px;
+      background: var(--border); border-radius: 1px; overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .ov-fill {
+      height: 100%; width: 0;
+      background: var(--accent); box-shadow: 0 0 8px var(--ag);
+      transition: width .35s ease;
+    }
+    #ov-msg {
+      font-family: var(--mono); font-size: 9px; letter-spacing: 3px;
+      color: #44446a; margin-bottom: 24px; min-height: 16px;
+      transition: opacity .2s;
+    }
+    #enter-btn {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 3px;
+      background: var(--border); color: #44446a;
+      border: 1px solid var(--bhi);
+      padding: 11px 36px; border-radius: 3px;
+      cursor: not-allowed; transition: all .2s; outline: none;
+    }
+    #enter-btn.ready {
+      background: var(--accent); color: #000;
+      border-color: var(--accent); cursor: pointer;
+      box-shadow: 0 0 28px var(--ag);
+    }
+    #enter-btn.ready:hover { transform: scale(1.03); box-shadow: 0 0 36px var(--ag); }
 
-    /* ── TRANSPORT ───────────────────────────────────────── */
-    .transport{flex-shrink:0;height:50px;background:var(--panel-lt);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:8px;position:relative;padding:0 14px}
-    .t-left{position:absolute;left:14px;display:flex;align-items:center;gap:10px}
-    .t-right{position:absolute;right:14px;display:flex;gap:6px}
-    #status{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:2px;padding:3px 8px;border:1px solid var(--border);border-radius:3px;color:var(--muted)}
-    #status.live{color:var(--ok);border-color:var(--ok);text-shadow:0 0 6px var(--ok)}
-    #users{font-family:var(--mono);font-size:9px;color:var(--muted)}
-    .tt{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;background:var(--panel);color:var(--text);border:1px solid var(--border);padding:6px 13px;border-radius:3px;cursor:pointer;transition:all .13s;outline:none}
-    .tt:hover{background:var(--hover);border-color:var(--bhi)}
-    #play-btn{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700;min-width:80px;box-shadow:0 0 14px var(--ag)}
-    #play-btn:hover{box-shadow:0 0 22px var(--ag)}
-    #play-btn.on{background:#eee;border-color:#eee;color:#000}
-    #rec-btn{color:var(--rec);border-color:var(--rec);min-width:100px}
-    #rec-btn.on{background:var(--rec);color:#fff;border-color:var(--rec);box-shadow:0 0 14px var(--recg);animation:blink 1.4s infinite}
-    @keyframes blink{0%,100%{opacity:1}50%{opacity:.55}}
-    .ctrl{display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);padding:4px 10px;border-radius:3px}
-    .ctrl-lbl{font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--dim)}
-    .ctrl-val{font-family:var(--mono);font-size:11px;color:var(--text);min-width:28px}
-    .ctrl-sel{font-family:var(--mono);font-size:10px;background:transparent;color:var(--text);border:none;outline:none;cursor:pointer}
-    input[type=range]{accent-color:var(--accent);background:var(--border);height:3px;border-radius:2px;outline:none;cursor:pointer}
+    /* ── AUDIO UNLOCK BANNER ───────────────────────────────────── */
+    #audio-unlock {
+      display: none;
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 9998;
+      background: var(--accent); color: #000;
+      font-family: var(--mono); font-size: 10px; letter-spacing: 3px;
+      text-align: center; padding: 9px; cursor: pointer;
+      animation: blink 1.4s ease-in-out infinite;
+    }
 
-    /* ── BEATS BAR ───────────────────────────────────────── */
-    .beats-bar{flex-shrink:0;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;padding:5px 14px;overflow-x:auto;min-height:36px}
-    .beats-bar::-webkit-scrollbar{height:3px}
-    .beats-bar::-webkit-scrollbar-thumb{background:var(--bhi);border-radius:2px}
-    .beats-lbl{font-family:var(--mono);font-size:8px;letter-spacing:3px;color:var(--dim);white-space:nowrap;margin-right:4px}
-    .beat-tab{font-family:var(--mono);font-size:10px;letter-spacing:1px;background:var(--panel);color:var(--muted);border:1px solid var(--border);padding:4px 13px;border-radius:3px;cursor:pointer;transition:all .13s;outline:none;white-space:nowrap;display:flex;align-items:center;gap:5px}
-    .beat-tab:hover{background:var(--hover);border-color:var(--bhi)}
-    .beat-tab.active{background:var(--ad);border-color:var(--accent);color:var(--accent)}
-    .bt-del{font-size:10px;color:var(--dim);line-height:1;background:none;border:none;cursor:pointer}
-    .bt-del:hover{color:var(--danger)!important}
-    .beat-add{font-family:var(--mono);font-size:10px;background:transparent;color:var(--dim);border:1px dashed var(--bhi);padding:4px 12px;border-radius:3px;cursor:pointer;transition:all .13s;outline:none;white-space:nowrap}
-    .beat-add:hover{border-color:var(--accent);color:var(--accent)}
+    /* ── TOP BAR ───────────────────────────────────────────────── */
+    .topbar {
+      flex-shrink: 0; height: 43px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 0 14px; gap: 6px;
+    }
+    .tbl { display: flex; align-items: center; gap: 6px; }
+    .proj-name {
+      font-family: var(--mono); font-size: 11px;
+      color: var(--accent); letter-spacing: 1px;
+      max-width: 200px; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+    .tbtn {
+      font-family: var(--mono); font-size: 9px; letter-spacing: 1.5px;
+      background: transparent; color: #55557a;
+      border: 1px solid var(--border);
+      padding: 4px 10px; border-radius: 3px;
+      cursor: pointer; transition: all .12s; outline: none;
+    }
+    .tbtn:hover { background: var(--hover); color: var(--text); border-color: var(--bhi); }
+    .tbtn.hi { border-color: var(--accent); color: var(--accent); }
+    .tbtn.hi:hover { background: var(--ad); }
+    #proj-loader {
+      font-family: var(--mono); font-size: 9px;
+      background: var(--panel); color: #55557a;
+      border: 1px solid var(--border);
+      padding: 4px 7px; border-radius: 3px; cursor: pointer; outline: none;
+    }
+    #user-disp { font-family: var(--mono); font-size: 10px; color: #55557a; letter-spacing: 1px; }
 
-    /* ── RACK ────────────────────────────────────────────── */
-    .rack-wrap{flex:1;overflow:auto;background:var(--bg);padding:10px 14px 60px}
-    .rack-wrap::-webkit-scrollbar{width:7px;height:7px}
-    .rack-wrap::-webkit-scrollbar-thumb{background:var(--bhi);border-radius:4px}
-    #rack{display:inline-flex;flex-direction:column;gap:4px;min-width:100%}
+    /* ── TRANSPORT ─────────────────────────────────────────────── */
+    .transport {
+      flex-shrink: 0; height: 49px;
+      background: var(--panel-lt);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      justify-content: center; gap: 7px;
+      position: relative; padding: 0 12px;
+    }
+    .t-left {
+      position: absolute; left: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .t-right { position: absolute; right: 12px; display: flex; gap: 5px; }
+    #status {
+      font-family: var(--mono); font-size: 8px; font-weight: 700;
+      letter-spacing: 2px; padding: 3px 7px;
+      border: 1px solid var(--border); border-radius: 3px;
+      color: #44446a; background: var(--bg);
+    }
+    #status.live { color: var(--ok); border-color: var(--ok); }
+    #users { font-family: var(--mono); font-size: 9px; color: #44446a; }
+    .tt {
+      font-family: var(--mono); font-size: 9px; letter-spacing: 1.5px;
+      background: var(--panel); color: var(--text);
+      border: 1px solid var(--border);
+      padding: 5px 11px; border-radius: 3px;
+      cursor: pointer; transition: all .12s; outline: none; white-space: nowrap;
+    }
+    .tt:hover { background: var(--hover); border-color: var(--bhi); }
+    #play-btn {
+      background: var(--accent); color: #000;
+      border-color: var(--accent); font-weight: 700; min-width: 78px;
+      box-shadow: 0 0 14px var(--ag);
+    }
+    #play-btn:hover { box-shadow: 0 0 22px var(--ag); }
+    #play-btn.on { background: var(--panel-lt); color: var(--accent); border-color: var(--accent); box-shadow: none; }
+    #rec-btn { color: var(--rec); border-color: rgba(255,64,64,.35); }
+    #rec-btn.on { background: var(--rec); color: #fff; border-color: var(--rec); box-shadow: 0 0 12px var(--recg); animation: blink 1.4s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.55} }
+    .ctrl {
+      display: flex; align-items: center; gap: 5px;
+      background: var(--bg); border: 1px solid var(--border);
+      padding: 3px 9px; border-radius: 3px; height: 32px;
+    }
+    .ctrl-lbl { font-family: var(--mono); font-size: 7px; letter-spacing: 2px; color: var(--dim); }
+    .ctrl-val { font-family: var(--mono); font-size: 11px; color: var(--text); min-width: 28px; }
+    .ctrl-sel { font-family: var(--mono); font-size: 10px; background: transparent; color: var(--text); border: none; outline: none; cursor: pointer; }
+    input[type=range] {
+      -webkit-appearance: none; appearance: none;
+      height: 2px; border-radius: 1px;
+      background: var(--bhi); outline: none; cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 11px; height: 11px; border-radius: 50%;
+      background: var(--accent); cursor: pointer;
+      box-shadow: 0 0 5px var(--ag);
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 11px; height: 11px; border-radius: 50%; border: none;
+      background: var(--accent); cursor: pointer;
+    }
 
-    /* layer row */
-    .lrow{display:flex;align-items:stretch;background:var(--panel);border:1px solid var(--border);border-radius:5px;min-width:max-content;transition:border-color .13s}
-    .lrow:hover{border-color:var(--bhi)}
+    /* ── BEATS BAR ─────────────────────────────────────────────── */
+    .beats-bar {
+      flex-shrink: 0; background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 5px;
+      padding: 5px 12px; overflow-x: auto; min-height: 36px;
+    }
+    .beats-bar::-webkit-scrollbar { height: 2px; }
+    .beats-bar::-webkit-scrollbar-thumb { background: var(--bhi); border-radius: 1px; }
+    .beats-lbl {
+      font-family: var(--mono); font-size: 8px; letter-spacing: 3px;
+      color: var(--dim); white-space: nowrap; margin-right: 2px;
+    }
+    .beat-tab {
+      font-family: var(--mono); font-size: 9px; letter-spacing: .5px;
+      background: var(--panel); color: #55557a;
+      border: 1px solid var(--border);
+      padding: 3px 11px; border-radius: 3px;
+      cursor: pointer; transition: all .12s; outline: none;
+      white-space: nowrap; display: flex; align-items: center; gap: 5px;
+    }
+    .beat-tab:hover { background: var(--hover); border-color: var(--bhi); }
+    .beat-tab.active { background: var(--ad); border-color: var(--accent); color: var(--accent); }
+    .bt-del { font-size: 9px; color: var(--dim); line-height: 1; background: none; border: none; cursor: pointer; }
+    .bt-del:hover { color: var(--danger) !important; }
+    .beat-add {
+      font-family: var(--mono); font-size: 9px;
+      background: transparent; color: var(--dim);
+      border: 1px dashed var(--bhi);
+      padding: 3px 11px; border-radius: 3px;
+      cursor: pointer; transition: all .12s; outline: none; white-space: nowrap;
+    }
+    .beat-add:hover { border-color: var(--accent); color: var(--accent); }
 
-    /* layer control panel — now slightly wider to fit extra row */
-    .lctrl{position:sticky;left:0;z-index:10;background:var(--panel);border-right:1px solid var(--border);border-radius:5px 0 0 5px;width:310px;flex-shrink:0;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:7px 11px}
-    .lhdr{display:flex;justify-content:space-between;align-items:center}
-    .l-author{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase}
-    .l-label{font-family:var(--mono);font-size:9px;letter-spacing:1px;background:transparent;border:none;border-bottom:1px solid transparent;outline:none;color:var(--muted);cursor:text;width:75px}
-    .l-label:focus{color:var(--text);border-bottom-color:var(--accent)}
-    .l-acts{display:flex;gap:3px}
-    .ibtn{background:transparent;border:none;cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--dim);padding:2px 5px;border-radius:3px;transition:all .1s;line-height:1}
-    .ibtn:hover{background:var(--hover);color:var(--text)}
-    .ibtn.muted{color:var(--danger)!important}
-    .ibtn.soloed{color:var(--warn)!important}
-    .ibtn.del:hover{color:var(--danger)}
+    /* ── RACK ──────────────────────────────────────────────────── */
+    .rack-wrap {
+      flex: 1; overflow: auto;
+      background: var(--bg); padding: 8px 12px 60px;
+    }
+    .rack-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
+    .rack-wrap::-webkit-scrollbar-thumb { background: var(--bhi); border-radius: 3px; }
+    #rack { display: inline-flex; flex-direction: column; gap: 3px; min-width: 100%; }
 
-    .lrow1,.lrow2,.lrow3{display:flex;align-items:center;gap:4px}
+    /* ── LAYER ROW ─────────────────────────────────────────────── */
+    /*
+     * FIX: All rows must be equal height.
+     * .lrow uses align-items:stretch so .lctrl and .steps grow together.
+     * .lctrl has a FIXED height so FX rows wrapping don't change it.
+     * height is set to exactly fit 4 internal rows at known sizes:
+     *   header(22) + r1(26) + r2(26) + r3(26) + gaps(4×5=20) + padding(14) = 134px
+     */
+    .lrow {
+      display: flex;
+      align-items: stretch;       /* ctrl and steps same height */
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      min-width: max-content;
+      transition: border-color .12s;
+    }
+    .lrow:hover { border-color: var(--bhi); }
 
-    /* selects */
-    .isel{font-family:var(--sans);font-size:11px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:3px 5px;height:26px;outline:none;cursor:pointer;flex:1}
-    .isel:focus{border-color:var(--accent)}
-    .msel{font-family:var(--mono);font-size:9px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:2px 4px;height:26px;outline:none;cursor:pointer}
-    .msel:focus{border-color:var(--accent)}
+    /* Control panel — sticky left, fixed width AND fixed height */
+    .lctrl {
+      position: sticky; left: 0; z-index: 10;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      border-radius: 5px 0 0 5px;
+      width: var(--ctrl-w);
+      /* Fixed height prevents FX row wrapping from altering row height */
+      height: 136px;
+      flex-shrink: 0;
+      display: flex; flex-direction: column;
+      justify-content: space-between;
+      gap: 0;
+      padding: 6px 10px;
+      overflow: hidden; /* clip anything that would expand it */
+    }
 
-    /* sliders with label+value */
-    .sl-row{display:flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:3px 7px;flex:1}
-    .sl-lbl{font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--dim);white-space:nowrap}
-    .sl-row input[type=range]{flex:1;width:unset}
-    .sl-num{font-family:var(--mono);font-size:9px;color:var(--muted);min-width:36px;text-align:right}
+    .lhdr { display: flex; justify-content: space-between; align-items: center; height: 22px; }
+    .l-author {
+      font-family: var(--mono); font-size: 8px; font-weight: 700;
+      letter-spacing: 2px; text-transform: uppercase; flex-shrink: 0;
+    }
+    .l-label {
+      font-family: var(--mono); font-size: 9px; letter-spacing: .5px;
+      background: transparent; border: none;
+      border-bottom: 1px solid transparent;
+      outline: none; color: #55557a; cursor: text; width: 72px;
+      transition: border-color .12s;
+    }
+    .l-label:focus { color: var(--text); border-bottom-color: var(--accent); }
+    .l-label::placeholder { color: var(--dim); }
+    .l-acts { display: flex; gap: 2px; }
+    .ibtn {
+      background: transparent; border: none; cursor: pointer;
+      font-family: var(--mono); font-size: 9px;
+      color: var(--dim); padding: 2px 4px; border-radius: 3px;
+      transition: all .1s; line-height: 1;
+    }
+    .ibtn:hover { background: var(--hover); color: var(--text); }
+    .ibtn.muted  { color: var(--danger) !important; }
+    .ibtn.soloed { color: var(--warn) !important; }
+    .ibtn.del:hover { color: var(--danger); }
 
-    /* fx toggles */
-    .fx-row{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-    .fx-chip{font-family:var(--mono);font-size:8px;letter-spacing:1px;background:var(--bg);color:var(--dim);border:1px solid var(--border);padding:3px 7px;border-radius:10px;cursor:pointer;transition:all .12s}
-    .fx-chip:hover{border-color:var(--bhi);color:var(--muted)}
-    .fx-chip.on{background:var(--ad);border-color:var(--accent);color:var(--accent)}
+    /* All internal rows same height */
+    .lrow1, .lrow2, .lrow3 {
+      display: flex; align-items: center; gap: 3px;
+      height: 26px; flex-shrink: 0;
+    }
 
-    /* sample btn */
-    .samp{font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:3px 8px;height:26px;cursor:pointer;transition:border-color .13s}
-    .samp:hover{border-color:var(--accent)}
-    .samp.loaded{border-color:var(--ok)}
+    .isel {
+      font-family: var(--sans); font-size: 11px;
+      background: var(--bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 3px;
+      padding: 0 5px; height: 26px; outline: none; cursor: pointer;
+      flex: 1; min-width: 0;
+    }
+    .isel:focus { border-color: var(--accent); }
+    .msel {
+      font-family: var(--mono); font-size: 9px;
+      background: var(--bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 3px;
+      padding: 0 4px; height: 26px; outline: none; cursor: pointer;
+      flex-shrink: 0;
+    }
+    .msel:focus { border-color: var(--accent); }
 
-    /* ── STEPS ──────────────────────────────────────────── */
-    .steps{display:flex;align-items:center;gap:2px;padding:8px 12px}
-    .sgap{width:5px;flex-shrink:0}
-    .sbtn{width:28px;height:48px;flex-shrink:0;border-radius:3px;border:1px solid transparent;padding:0;cursor:pointer;transition:background .07s,border-color .07s}
-    .sbtn.d0{background:var(--s0)}
-    .sbtn.d1{background:var(--s1)}
-    .sbtn.on{border-color:transparent!important}
-    .sbtn.hd{border-color:rgba(255,255,255,.8)!important}
-    .sbtn:hover{filter:brightness(1.35)}
+    /* Slider rows — fixed height, NO flex-wrap */
+    .sl-row {
+      display: flex; align-items: center; gap: 4px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 3px; padding: 0 6px;
+      height: 26px; flex: 1; min-width: 0;
+      overflow: hidden; /* clip label if too narrow */
+    }
+    .sl-lbl {
+      font-family: var(--mono); font-size: 7px; letter-spacing: 1.5px;
+      color: var(--dim); white-space: nowrap; flex-shrink: 0;
+    }
+    .sl-row input[type=range] { flex: 1; min-width: 0; }
+    .sl-num {
+      font-family: var(--mono); font-size: 8px;
+      color: #55557a; min-width: 32px; text-align: right; flex-shrink: 0;
+    }
 
-    .add-layer{font-family:var(--mono);font-size:10px;letter-spacing:2px;background:transparent;color:var(--dim);border:1px dashed var(--bhi);padding:10px;border-radius:4px;cursor:pointer;width:310px;transition:all .13s;margin-top:4px}
-    .add-layer:hover{border-color:var(--accent);color:var(--accent)}
+    /* FX row: 4 sliders in a single non-wrapping line */
+    .lrow3 {
+      gap: 3px;
+      flex-wrap: nowrap; /* CRITICAL — no wrapping, keeps height fixed */
+    }
+    .lrow3 .sl-row { min-width: 0; }
 
-    /* ── TOASTS ─────────────────────────────────────────── */
-    #toasts{position:fixed;bottom:18px;right:18px;display:flex;flex-direction:column;gap:7px;z-index:9998;pointer-events:none}
-    .toast{font-family:var(--mono);font-size:10px;letter-spacing:1px;background:var(--panel-lt);border:1px solid var(--bhi);color:var(--text);padding:9px 15px;border-radius:4px;box-shadow:0 4px 18px rgba(0,0,0,.55);animation:tin .2s ease}
-    .toast.ok{border-color:var(--ok);color:var(--ok)}
-    .toast.err{border-color:var(--danger);color:var(--danger)}
-    @keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    .samp {
+      font-size: 12px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 3px;
+      padding: 0 7px; height: 26px; cursor: pointer;
+      transition: border-color .12s; flex-shrink: 0;
+    }
+    .samp:hover { border-color: var(--accent); }
+    .samp.loaded { border-color: var(--ok); }
 
-    select option,select optgroup{background:#1a1a2e}
+    /* ── STEPS ─────────────────────────────────────────────────── */
+    .steps {
+      display: flex; align-items: center; gap: 2px;
+      padding: 0 10px;
+      /* stretch to full row height */
+      align-self: stretch;
+      align-content: center;
+    }
+    .sgap { width: 4px; flex-shrink: 0; }
+    .sbtn {
+      /* FIX: explicit height so all step buttons match regardless of row content */
+      width: 26px; height: 100%;
+      min-height: 44px; max-height: 136px;
+      flex-shrink: 0;
+      border-radius: 3px; border: 1px solid transparent;
+      padding: 0; cursor: pointer;
+      transition: background .07s, border-color .07s, filter .07s;
+    }
+    .sbtn.d0 { background: var(--s0); }
+    .sbtn.d1 { background: var(--s1); }
+    .sbtn.on { border-color: transparent !important; }
+    .sbtn.hd { border-color: rgba(255,255,255,.75) !important; }
+    .sbtn:hover { filter: brightness(1.4); }
+
+    .add-layer {
+      font-family: var(--mono); font-size: 9px; letter-spacing: 2px;
+      background: transparent; color: var(--dim);
+      border: 1px dashed var(--bhi);
+      padding: 9px; border-radius: 4px;
+      cursor: pointer; width: var(--ctrl-w);
+      transition: all .12s; margin-top: 3px;
+    }
+    .add-layer:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── TOASTS ────────────────────────────────────────────────── */
+    #toasts {
+      position: fixed; bottom: 16px; right: 16px;
+      display: flex; flex-direction: column; gap: 6px;
+      z-index: 9997; pointer-events: none;
+    }
+    .toast {
+      font-family: var(--mono); font-size: 9px; letter-spacing: .5px;
+      background: var(--panel-lt); border: 1px solid var(--bhi);
+      color: var(--text); padding: 8px 13px; border-radius: 3px;
+      box-shadow: 0 4px 18px rgba(0,0,0,.55);
+      animation: tin .18s ease;
+    }
+    .toast.ok  { border-color: var(--ok);     color: var(--ok); }
+    .toast.err { border-color: var(--danger);  color: var(--danger); }
+    @keyframes tin { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+
+    select option, select optgroup { background: #0f0f1a; }
   </style>
 </head>
 <body>
@@ -174,6 +429,9 @@
   <div id="ov-msg">INITIALIZING...</div>
   <button id="enter-btn" disabled>CONNECTING...</button>
 </div>
+
+<!-- AUDIO UNLOCK BANNER (shown when AudioContext suspended post-enter) -->
+<div id="audio-unlock" onclick="doUnlockAudio()">⚡ TAP HERE TO ACTIVATE AUDIO</div>
 
 <!-- TOP BAR -->
 <div class="topbar">
@@ -203,31 +461,33 @@
   <div class="ctrl">
     <span class="ctrl-lbl">STEPS</span>
     <select class="ctrl-sel" id="step-sel" onchange="W.changeSteps(+this.value)">
-      <option value="16">16</option><option value="32">32</option><option value="64">64</option>
+      <option value="16">16</option>
+      <option value="32">32</option>
+      <option value="64">64</option>
     </select>
   </div>
   <div class="ctrl">
     <span class="ctrl-lbl">BPM</span>
-    <input type="range" id="bpm-sl" min="40" max="220" value="120" style="width:90px"
+    <input type="range" id="bpm-sl" min="40" max="220" value="120" style="width:86px"
       oninput="W.bpmUI(+this.value)" onchange="W.sendBPM(+this.value)"/>
     <span class="ctrl-val" id="bpm-val">120</span>
   </div>
   <div class="ctrl">
     <span class="ctrl-lbl">REVERB</span>
-    <input type="range" id="reverb-sl" min="0" max="100" value="15" style="width:70px"
+    <input type="range" id="reverb-sl" min="0" max="100" value="15" style="width:66px"
       oninput="W.setReverb(+this.value)"/>
     <span class="ctrl-val" id="reverb-val" style="font-size:9px">15%</span>
   </div>
 
   <div class="t-right">
-    <button class="tt" style="color:var(--ok);border-color:var(--ok)" onclick="W.exportAudio()">⬇ EXPORT</button>
+    <button class="tt" style="color:var(--ok);border-color:rgba(0,229,160,.3)" onclick="W.exportAudio()">⬇ EXPORT</button>
   </div>
 </div>
 
 <!-- BEATS BAR -->
 <div class="beats-bar">
-  <span class="beats-lbl">BEATS:</span>
-  <div id="beat-tabs" style="display:flex;gap:6px;align-items:center"></div>
+  <span class="beats-lbl">BEATS</span>
+  <div id="beat-tabs" style="display:flex;gap:5px;align-items:center"></div>
   <button class="beat-add" onclick="W.addBeat()">+ NEW BEAT</button>
 </div>
 
@@ -241,14 +501,14 @@
 
 <script>
 // ═══════════════════════════════════════════════════════════════
-//  CONFIG  — change BACKEND to "" if using Discord URL mappings
+//  CONFIG
 // ═══════════════════════════════════════════════════════════════
 const BACKEND = "https://beat-backend-5nnu.onrender.com";
-
 const W = window;
 
 // ── audio ──────────────────────────────────────────────────────
 let masterOut, masterVerb, masterComp, recorder;
+let audioReady = false;
 
 // ── socket / discord ───────────────────────────────────────────
 let socket, discordSdk;
@@ -259,15 +519,12 @@ let tick32 = 0, playing = false, recording = false;
 let mutedSet = new Set(), soloId = null;
 
 // ── per-layer audio ────────────────────────────────────────────
-let synthMap  = {};   // id → { key, node, isPlayer, fx }
-let customMap = {};   // id → { url, name }
-let layerBtns = {};   // id → [btn,…]
+let synthMap  = {};
+let customMap = {};
+let layerBtns = {};
+let fxMap     = {};
 
-// ── FX nodes per layer ─────────────────────────────────────────
-// fxMap[id] = { distortion, filter, delay, reverb, bitcrush }
-let fxMap = {};
-
-// ── state (mirrors server) ─────────────────────────────────────
+// ── server state mirror ────────────────────────────────────────
 let S = {
   projectName: "Untitled Session",
   bpm: 120, steps: 16,
@@ -300,11 +557,11 @@ const SYNTHS = {
     "Rimshot"       : ()=>new Tone.MembraneSynth({pitchDecay:.01,octaves:2,envelope:{attack:.001,decay:.055,sustain:0}}),
   },
   "BASS": {
-    "Bass Sine"     : ()=>new Tone.MonoSynth({oscillator:{type:"sine"},    envelope:{attack:.01,decay:.4,sustain:.6,release:.2}}),
-    "Bass Acid"     : ()=>new Tone.MonoSynth({oscillator:{type:"sawtooth"},filter:{Q:5,type:"lowpass"},filterEnvelope:{attack:.01,decay:.2,sustain:.4,release:.2,baseFrequency:200,octaves:3},envelope:{attack:.01,decay:.3,sustain:.5,release:.2}}),
-    "Bass Square"   : ()=>new Tone.MonoSynth({oscillator:{type:"square"},  envelope:{attack:.01,decay:.3,sustain:.5,release:.2}}),
-    "Bass Reese"    : ()=>new Tone.PolySynth(Tone.Synth,{oscillator:{type:"fatsawtooth",count:3,spread:20},envelope:{attack:.02,decay:.4,sustain:.6,release:.3}}),
-    "Bass Pluck"    : ()=>new Tone.PluckSynth({attackNoise:1.5,dampening:3000,resonance:.96}),
+    "Bass Sine"  : ()=>new Tone.MonoSynth({oscillator:{type:"sine"},   envelope:{attack:.01,decay:.4,sustain:.6,release:.2}}),
+    "Bass Acid"  : ()=>new Tone.MonoSynth({oscillator:{type:"sawtooth"},filter:{Q:5,type:"lowpass"},filterEnvelope:{attack:.01,decay:.2,sustain:.4,release:.2,baseFrequency:200,octaves:3},envelope:{attack:.01,decay:.3,sustain:.5,release:.2}}),
+    "Bass Square": ()=>new Tone.MonoSynth({oscillator:{type:"square"}, envelope:{attack:.01,decay:.3,sustain:.5,release:.2}}),
+    "Bass Reese" : ()=>new Tone.PolySynth(Tone.Synth,{oscillator:{type:"fatsawtooth",count:3,spread:20},envelope:{attack:.02,decay:.4,sustain:.6,release:.3}}),
+    "Bass Pluck" : ()=>new Tone.PluckSynth({attackNoise:1.5,dampening:3000,resonance:.96}),
   },
   "KEYS & PIANO": {
     "Grand Piano"   : ()=>new Tone.PolySynth(Tone.Synth,  {oscillator:{type:"triangle"},envelope:{attack:.01,decay:1.5,sustain:.1,release:1.2}}),
@@ -314,67 +571,66 @@ const SYNTHS = {
     "Harpsichord"   : ()=>new Tone.PluckSynth({attackNoise:2,dampening:4000,resonance:.95}),
   },
   "PADS & STRINGS": {
-    "Strings"       : ()=>new Tone.PolySynth(Tone.Synth,  {oscillator:{type:"fatsawtooth",count:5},envelope:{attack:.4,release:1.2}}),
-    "Pad Dream"     : ()=>new Tone.PolySynth(Tone.Synth,  {oscillator:{type:"fatsine",spread:30},  envelope:{attack:1,release:2}}),
-    "Pad Dark"      : ()=>new Tone.PolySynth(Tone.Synth,  {oscillator:{type:"fatsawtooth",spread:20},envelope:{attack:1.5,release:2}}),
-    "Choir FM"      : ()=>new Tone.PolySynth(Tone.FMSynth,{harmonicity:.5,modulationIndex:5}),
-    "Atmosphere"    : ()=>new Tone.PolySynth(Tone.AMSynth,{harmonicity:.5,envelope:{attack:2,release:3}}),
+    "Strings"   : ()=>new Tone.PolySynth(Tone.Synth,  {oscillator:{type:"fatsawtooth",count:5},envelope:{attack:.4,release:1.2}}),
+    "Pad Dream" : ()=>new Tone.PolySynth(Tone.Synth,  {oscillator:{type:"fatsine",spread:30},  envelope:{attack:1,release:2}}),
+    "Pad Dark"  : ()=>new Tone.PolySynth(Tone.Synth,  {oscillator:{type:"fatsawtooth",spread:20},envelope:{attack:1.5,release:2}}),
+    "Choir FM"  : ()=>new Tone.PolySynth(Tone.FMSynth,{harmonicity:.5,modulationIndex:5}),
+    "Atmosphere": ()=>new Tone.PolySynth(Tone.AMSynth,{harmonicity:.5,envelope:{attack:2,release:3}}),
   },
   "LEADS & FX": {
-    "Lead Saw"      : ()=>new Tone.PolySynth(Tone.Synth,  {oscillator:{type:"fatsawtooth",count:3,spread:15}}),
-    "Lead Square"   : ()=>new Tone.PolySynth(Tone.Synth,  {oscillator:{type:"square"}}),
-    "Lead Sine"     : ()=>new Tone.PolySynth(Tone.Synth,  {oscillator:{type:"sine"},portamento:.15}),
-    "8-Bit"         : ()=>new Tone.PolySynth(Tone.Synth,  {oscillator:{type:"pulse",width:.25}}),
-    "AM Buzz"       : ()=>new Tone.PolySynth(Tone.AMSynth,{harmonicity:2}),
-    "Sub Drop"      : ()=>new Tone.MembraneSynth({pitchDecay:.5,octaves:10}),
+    "Lead Saw"   : ()=>new Tone.PolySynth(Tone.Synth,  {oscillator:{type:"fatsawtooth",count:3,spread:15}}),
+    "Lead Square": ()=>new Tone.PolySynth(Tone.Synth,  {oscillator:{type:"square"}}),
+    "Lead Sine"  : ()=>new Tone.PolySynth(Tone.Synth,  {oscillator:{type:"sine"},portamento:.15}),
+    "8-Bit"      : ()=>new Tone.PolySynth(Tone.Synth,  {oscillator:{type:"pulse",width:.25}}),
+    "AM Buzz"    : ()=>new Tone.PolySynth(Tone.AMSynth,{harmonicity:2}),
+    "Sub Drop"   : ()=>new Tone.MembraneSynth({pitchDecay:.5,octaves:10}),
   },
 };
-
 const DRUM_SET = new Set([
   "Kick 808","Kick House","Kick Sub","Kick Techno",
   "Snare Trap","Snare Acoustic","Clap Studio","Clap Wide",
   "Hi-Hat Closed","Hi-Hat Open","Ride","Cowbell","Shaker","Rimshot","Sub Drop",
 ]);
-
 function isDrum(k){ return DRUM_SET.has(k); }
-
 function getSynthFactory(key){
   for(const cat of Object.values(SYNTHS)) if(cat[key]) return cat[key];
   return SYNTHS["KEYS & PIANO"]["Grand Piano"];
 }
 
-// ── Build FX chain for a layer ──────────────────────────────────
-// chain: synth → distortion → filter → delay → chained into masterVerb
-function buildFxChain(layerId, layerFxState){
-  // Dispose old FX
+// ═══════════════════════════════════════════════════════════════
+//  AUDIO GRAPH HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+// Returns whatever is currently the "master bus input" —
+// either masterVerb (if it loaded) or masterComp (dry fallback).
+function masterBus(){ return masterVerb || masterComp; }
+
+function buildFxChain(layerId, fxState){
   const old = fxMap[layerId];
   if(old){ for(const n of Object.values(old)){ try{n.dispose();}catch(_){} } }
 
-  const fx = layerFxState || { distortion:0, filterFreq:20000, filterType:"lowpass", delay:0, delayFeedback:.3, bitcrush:0 };
+  const fx = fxState || { distortion:0, filterFreq:20000, filterType:"lowpass", delayWet:0, delayFeedback:.3, bitcrush:8 };
 
   const dist   = new Tone.Distortion(fx.distortion || 0);
   const filter = new Tone.Filter({ frequency: fx.filterFreq || 20000, type: fx.filterType || "lowpass" });
-  const delay  = new Tone.FeedbackDelay({ delayTime: fx.delay || 0, feedback: fx.delayFeedback || .3, wet: fx.delay>0 ? .5 : 0 });
+  const delay  = new Tone.FeedbackDelay({ delayTime:"8n", feedback: fx.delayFeedback||.3, wet: fx.delayWet||0 });
   const crush  = new Tone.BitCrusher(fx.bitcrush || 8);
 
-  // Chain in series
-  dist.chain(filter, delay, crush, masterVerb);
+  dist.chain(filter, delay, crush, masterBus());
   fxMap[layerId] = { dist, filter, delay, crush };
   return fxMap[layerId];
 }
 
-function spawnSynth(layerId, key, layerFxState){
+function spawnSynth(layerId, key, fxState){
   const old = synthMap[layerId];
   if(old){ try{old.node.dispose();}catch(_){} }
-  if(!masterVerb) return null;
+  if(!masterOut) return null;
 
-  const chain = buildFxChain(layerId, layerFxState);
+  const chain = buildFxChain(layerId, fxState);
   const node  = getSynthFactory(key)();
   node.connect(chain.dist);
-
-  const entry = { key, node, isPlayer:false };
-  synthMap[layerId] = entry;
-  return entry;
+  synthMap[layerId] = { key, node, isPlayer: false };
+  return synthMap[layerId];
 }
 
 function setVol(layerId, db){
@@ -382,8 +638,7 @@ function setVol(layerId, db){
   try{ e.node.volume.value = parseFloat(db); }catch(_){}
 }
 
-// ── NOTES ──────────────────────────────────────────────────────
-const NOTES=[];
+const NOTES = [];
 for(const oct of [1,2,3,4,5])
   for(const n of ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"])
     NOTES.push(n+oct);
@@ -391,46 +646,49 @@ for(const oct of [1,2,3,4,5])
 // ═══════════════════════════════════════════════════════════════
 //  UTILITIES
 // ═══════════════════════════════════════════════════════════════
-function toast(msg,type){
-  const el=document.createElement("div");
-  el.className="toast"+(type?" "+type:"");
-  el.textContent=msg;
+function toast(msg, type){
+  const el = document.createElement("div");
+  el.className = "toast" + (type ? " "+type : "");
+  el.textContent = msg;
   document.getElementById("toasts").appendChild(el);
-  setTimeout(()=>el.remove(),3000);
+  setTimeout(()=>el.remove(), 3000);
 }
-function ovMsg(msg,pct){
-  document.getElementById("ov-msg").textContent=msg;
-  if(pct!==undefined) document.getElementById("ov-fill").style.width=pct+"%";
+function ovMsg(msg, pct){
+  document.getElementById("ov-msg").textContent = msg;
+  if(pct !== undefined) document.getElementById("ov-fill").style.width = pct+"%";
 }
 function userColor(name){
-  let h=0; for(const c of(name||"?")) h=(h<<5)-h+c.charCodeAt(0);
-  return `hsl(${Math.abs(h)%360},70%,62%)`;
+  let h = 0; for(const c of (name||"?")) h = (h<<5) - h + c.charCodeAt(0);
+  return `hsl(${Math.abs(h)%360},65%,62%)`;
 }
 function getActiveBeat(){
-  return S.beats.find(b=>b.id===S.activeBeat)||S.beats[0]||null;
+  return S.beats.find(b=>b.id===S.activeBeat) || S.beats[0] || null;
+}
+
+async function doUnlockAudio(){
+  try{ await Tone.context.resume(); }catch(_){}
+  if(Tone.context.state !== "suspended")
+    document.getElementById("audio-unlock").style.display = "none";
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  BOOT  — Discord hang fix:
-//   1. Don't await Tone.start() inside the iframe indefinitely.
-//      Wrap it with a timeout so the UI still appears.
-//   2. All Discord SDK work happens BEFORE showing Enter button,
-//      so the button click is the only user-gesture needed.
-//   3. If Tone.start() hangs (some browsers inside iframes),
-//      we resolve anyway and show a "tap anywhere" prompt.
+//  BOOT
+//  ─────────────────────────────────────────────────────────────
+//  All setup (socket, config, Discord SDK) happens here.
+//  No audio work happens until the user clicks Enter Studio.
 // ═══════════════════════════════════════════════════════════════
 async function boot(){
   ovMsg("LOADING SOCKET.IO...", 15);
 
-  // Load socket.io — from backend first (proxy-safe), CDN fallback
+  // Load socket.io — backend-hosted first (proxy-safe), CDN fallback
   await new Promise(res=>{
-    const s=document.createElement("script");
-    s.src=BACKEND+"/socket.io/socket.io.js";
-    s.onload=res;
-    s.onerror=()=>{
-      const s2=document.createElement("script");
-      s2.src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js";
-      s2.onload=res; s2.onerror=res;
+    const s = document.createElement("script");
+    s.src = BACKEND + "/socket.io/socket.io.js";
+    s.onload = res;
+    s.onerror = ()=>{
+      const s2 = document.createElement("script");
+      s2.src = "https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js";
+      s2.onload = res; s2.onerror = res;
       document.head.appendChild(s2);
     };
     document.head.appendChild(s);
@@ -438,101 +696,128 @@ async function boot(){
 
   ovMsg("CONNECTING TO SERVER...", 35);
   try{
-    socket=io(BACKEND,{transports:["websocket"],timeout:8000});
+    socket = io(BACKEND, { transports:["websocket","polling"], timeout:8000 });
     setupSocket();
-  }catch(e){ console.warn("Socket error:",e); }
+  }catch(e){ console.warn("Socket error:", e); }
 
   ovMsg("FETCHING CONFIG...", 55);
-  let clientId=null;
+  let clientId = null;
   try{
-    const r=await fetch(BACKEND+"/api/config");
-    const j=await r.json();
-    clientId=j.clientId;
-  }catch(e){ console.warn("Config fetch failed:",e); }
+    const r = await fetch(BACKEND + "/api/config");
+    const j = await r.json();
+    clientId = j.clientId;
+  }catch(e){ console.warn("Config fetch failed:", e); }
 
-  // Discord SDK auth — only inside Discord iframe
-  const inDiscord=new URLSearchParams(location.search).has("frame_id");
+  // ── Discord SDK auth ────────────────────────────────────────
+  // ONLY runs when actually inside Discord (frame_id query param present).
+  const inDiscord = new URLSearchParams(location.search).has("frame_id");
   if(inDiscord && clientId){
     ovMsg("DISCORD AUTH...", 75);
     try{
-      const{DiscordSDK}=await import("https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.2.0/+esm");
-      discordSdk=new DiscordSDK(clientId);
+      const { DiscordSDK } = await import("https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.2.0/+esm");
+      discordSdk = new DiscordSDK(clientId);
 
-      // ready() can stall in some Discord client versions — give it 8s
+      // ready() can stall on some Discord client versions — cap at 8s
       await Promise.race([
         discordSdk.ready(),
         new Promise((_,rej)=>setTimeout(()=>rej(new Error("SDK ready timeout")),8000))
       ]);
 
-      const{code}=await discordSdk.commands.authorize({
-        client_id:clientId, response_type:"code",
-        prompt:"none", scope:["identify"],
+      const { code } = await discordSdk.commands.authorize({
+        client_id: clientId, response_type: "code",
+        prompt: "none", scope: ["identify"],
       });
 
-      const tr=await fetch(BACKEND+"/api/token",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({code}),
+      const tr = await fetch(BACKEND + "/api/token", {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify({ code }),
       });
-      const{access_token}=await tr.json();
-
-      const auth=await discordSdk.commands.authenticate({access_token});
-      username=auth.user.global_name||auth.user.username;
-      userId=auth.user.id;
+      const { access_token } = await tr.json();
+      const auth = await discordSdk.commands.authenticate({ access_token });
+      username = auth.user.global_name || auth.user.username;
+      userId   = auth.user.id;
     }catch(e){
-      console.warn("Discord auth error (continuing as guest):",e);
-      // Don't block — just continue as guest
+      // Non-fatal — continue as guest
+      console.warn("Discord auth error (guest mode):", e);
     }
   }
 
   ovMsg("READY", 100);
-  const btn=document.getElementById("enter-btn");
-  btn.textContent="ENTER STUDIO";
+  const btn = document.getElementById("enter-btn");
+  btn.textContent = "ENTER STUDIO";
   btn.classList.add("ready");
-  btn.disabled=false;
-  btn.onclick=enterStudio;
+  btn.disabled = false;
+  btn.onclick = enterStudio;
 }
 
-// ── Enter Studio ────────────────────────────────────────────────
-// Critical: Tone.start() MUST be called from a direct user gesture.
-// In Discord's iframe, AudioContext.resume() sometimes hangs indefinitely.
-// We race it against a 3s timeout — if it hangs, we proceed anyway
-// (audio may not work until the user interacts again, but UI shows up).
+// ═══════════════════════════════════════════════════════════════
+//  ENTER STUDIO
+//  ─────────────────────────────────────────────────────────────
+//  CRITICAL FIX ORDER:
+//  1. Hide overlay IMMEDIATELY (first line) — never block this.
+//  2. Update user display.
+//  3. Tone.start() with timeout — may not fully resume in iframe,
+//     that's OK, we'll show the unlock banner.
+//  4. Build master audio graph WITHOUT awaiting Reverb.generate().
+//     Tone.Reverb constructor calls OfflineAudioContext internally
+//     and can hang forever in Discord's iframe. We create it,
+//     connect it immediately, and let it warm up asynchronously.
+//     If it stalls beyond 1.5s we fall back to a dry path.
+//  5. Start sequencer loop + build UI.
+// ═══════════════════════════════════════════════════════════════
 async function enterStudio(){
-  ovMsg("STARTING AUDIO...", 95);
+  // ★ Step 1 — hide overlay immediately, never block on audio ★
+  document.getElementById("overlay").style.display = "none";
 
-  // Tone.start() with timeout fallback for Discord iframe
+  // Step 2 — user display
+  const col = userColor(username);
+  document.getElementById("user-disp").textContent = "● " + username;
+  document.getElementById("user-disp").style.color = col;
+
+  // Step 3 — try to start AudioContext from this gesture
   try{
     await Promise.race([
       Tone.start(),
-      new Promise(res=>setTimeout(res,3000))  // 3s max — don't block UI
+      new Promise(r=>setTimeout(r, 2500))
     ]);
-  }catch(e){ console.warn("Tone.start() issue:",e); }
+  }catch(e){ console.warn("Tone.start:", e); }
 
-  // Build master audio graph
-  masterComp = new Tone.Compressor({threshold:-18,ratio:4,attack:.003,release:.25});
+  // Step 4 — build master graph
+  masterComp = new Tone.Compressor({ threshold:-18, ratio:4, attack:.003, release:.25 });
   masterOut  = new Tone.Gain(0.82).toDestination();
-  masterVerb = new Tone.Reverb({decay:2.2, wet:0.15});
-
-  // Don't await reverb.ready — it can hang in some environments.
-  // Connect immediately and let it warm up in background.
-  masterVerb.connect(masterComp);
   masterComp.connect(masterOut);
 
-  recorder=new Tone.Recorder();
+  recorder = new Tone.Recorder();
   masterOut.connect(recorder);
 
-  document.getElementById("overlay").style.display="none";
+  // Reverb with fallback — create it, connect optimistically.
+  // DO NOT await generate() — it uses OfflineAudioContext which hangs in Discord iframes.
+  try{
+    const verbCandidate = new Tone.Reverb({ decay:2.2, wet:0.15 });
+    // Race: if connected in time, use it; otherwise keep dry path
+    await Promise.race([
+      new Promise(res=>{
+        verbCandidate.connect(masterComp);
+        masterVerb = verbCandidate;
+        res();
+      }),
+      new Promise(res=>setTimeout(res, 1500))
+    ]);
+  }catch(e){
+    console.warn("Reverb init failed, dry path:", e);
+    masterVerb = null;
+  }
 
-  const col=userColor(username);
-  document.getElementById("user-disp").textContent="● "+username;
-  document.getElementById("user-disp").style.color=col;
+  audioReady = true;
 
-  // If AudioContext is still suspended (happens in some iframe cases),
-  // show a subtle tap prompt. Any click on the page will resume it.
-  if(Tone.context.state==="suspended"){
-    toast("Tap anywhere to activate audio","err");
-    document.addEventListener("click",()=>Tone.context.resume(),{once:true});
+  // Step 5 — show audio unlock banner if AudioContext is still suspended
+  if(Tone.context.state === "suspended"){
+    document.getElementById("audio-unlock").style.display = "block";
+    // Any subsequent user interaction will also try to unlock
+    const tryUnlock = ()=>doUnlockAudio();
+    document.addEventListener("click",      tryUnlock, { once:true });
+    document.addEventListener("touchstart", tryUnlock, { once:true });
   }
 
   startLoop();
@@ -544,22 +829,21 @@ async function enterStudio(){
 // ═══════════════════════════════════════════════════════════════
 function startLoop(){
   Tone.Transport.scheduleRepeat((time)=>{
-    const beat=getActiveBeat();
+    const beat = getActiveBeat();
     if(!beat){ tick32++; return; }
 
     beat.layers.forEach(layer=>{
       if(mutedSet.has(layer.id)) return;
-      if(soloId && soloId!==layer.id) return;
+      if(soloId && soloId !== layer.id) return;
 
-      // bpmMult is now a float 0.25–4 from the slider
-      const mult=layer.bpmMult||1;
-      const div=Math.max(1, Math.round(2/mult));
-      if(tick32%div!==0) return;
+      const mult = layer.bpmMult || 1;
+      const div  = Math.max(1, Math.round(2/mult));
+      if(tick32 % div !== 0) return;
 
-      const step=Math.floor(tick32/div)%S.steps;
-      if(!layer.pattern||!layer.pattern[step]) return;
+      const step = Math.floor(tick32/div) % S.steps;
+      if(!layer.pattern || !layer.pattern[step]) return;
 
-      const inst=synthMap[layer.id];
+      const inst = synthMap[layer.id];
       if(!inst) return;
       try{
         if(inst.isPlayer){ inst.node.stop(time); inst.node.start(time); }
@@ -567,19 +851,19 @@ function startLoop(){
       }catch(_){}
     });
 
-    Tone.Draw.schedule(()=>drawHead(tick32),time);
+    Tone.Draw.schedule(()=>drawHead(tick32), time);
     tick32++;
-  },"32n");
+  }, "32n");
 }
 
 function drawHead(t){
-  const beat=getActiveBeat(); if(!beat) return;
+  const beat = getActiveBeat(); if(!beat) return;
   beat.layers.forEach(layer=>{
-    const btns=layerBtns[layer.id]; if(!btns) return;
-    const div=Math.max(1,Math.round(2/(layer.bpmMult||1)));
-    if(t%div!==0) return;
-    const step=Math.floor(t/div)%S.steps;
-    btns.forEach((b,i)=>{ i===step?b.classList.add("hd"):b.classList.remove("hd"); });
+    const btns = layerBtns[layer.id]; if(!btns) return;
+    const div  = Math.max(1, Math.round(2/(layer.bpmMult||1)));
+    if(t % div !== 0) return;
+    const step = Math.floor(t/div) % S.steps;
+    btns.forEach((b,i)=>{ i===step ? b.classList.add("hd") : b.classList.remove("hd"); });
   });
 }
 
@@ -587,293 +871,296 @@ function drawHead(t){
 //  UI BUILD
 // ═══════════════════════════════════════════════════════════════
 function buildUI(){
-  document.getElementById("proj-name").textContent=S.projectName;
-  document.getElementById("bpm-sl").value=S.bpm;
-  document.getElementById("bpm-val").textContent=S.bpm;
-  document.getElementById("step-sel").value=S.steps;
-  Tone.Transport.bpm.value=S.bpm;
+  document.getElementById("proj-name").textContent = S.projectName;
+  document.getElementById("bpm-sl").value = S.bpm;
+  document.getElementById("bpm-val").textContent = S.bpm;
+  document.getElementById("step-sel").value = S.steps;
+  Tone.Transport.bpm.value = S.bpm;
   buildBeatTabs();
   buildRack();
 }
 
-// ── Beat tabs ────────────────────────────────────────────────────
 function buildBeatTabs(){
-  const wrap=document.getElementById("beat-tabs");
-  wrap.innerHTML="";
+  const wrap = document.getElementById("beat-tabs");
+  wrap.innerHTML = "";
   S.beats.forEach(beat=>{
-    const tab=document.createElement("button");
-    tab.className="beat-tab"+(beat.id===S.activeBeat?" active":"");
+    const tab = document.createElement("button");
+    tab.className = "beat-tab" + (beat.id===S.activeBeat?" active":"");
 
-    const ns=document.createElement("span");
-    ns.textContent=beat.name;
-    ns.ondblclick=e=>{
+    const ns = document.createElement("span");
+    ns.textContent = beat.name;
+    ns.ondblclick = e=>{
       e.stopPropagation();
-      const inp=document.createElement("input");
-      inp.value=beat.name;
-      inp.style.cssText="font-family:var(--mono);font-size:10px;background:transparent;color:var(--text);border:none;outline:none;width:80px";
-      inp.onclick=e=>e.stopPropagation();
-      inp.onblur=()=>{ if(inp.value.trim()) socket.emit("renameBeat",{beatId:beat.id,name:inp.value.trim()}); };
-      inp.onkeydown=e=>{ if(e.key==="Enter") inp.blur(); if(e.key==="Escape"){inp.value=beat.name;inp.blur();} };
+      const inp = document.createElement("input");
+      inp.value = beat.name;
+      inp.style.cssText = "font-family:var(--mono);font-size:9px;background:transparent;color:var(--text);border:none;outline:none;width:70px";
+      inp.onclick = e=>e.stopPropagation();
+      inp.onblur  = ()=>{ if(inp.value.trim()) socket.emit("renameBeat",{beatId:beat.id,name:inp.value.trim()}); };
+      inp.onkeydown = e=>{ if(e.key==="Enter") inp.blur(); if(e.key==="Escape"){inp.value=beat.name;inp.blur();} };
       ns.replaceWith(inp); inp.focus(); inp.select();
     };
-    tab.onclick=()=>socket.emit("switchBeat",beat.id);
+    tab.onclick = ()=>socket.emit("switchBeat", beat.id);
     tab.appendChild(ns);
 
-    if(S.beats.length>1){
-      const del=document.createElement("button");
-      del.className="ibtn bt-del del"; del.textContent="✕";
-      del.onclick=e=>{ e.stopPropagation(); if(confirm('Delete "'+beat.name+'"?')) socket.emit("deleteBeat",beat.id); };
+    if(S.beats.length > 1){
+      const del = document.createElement("button");
+      del.className = "ibtn bt-del del"; del.textContent = "✕";
+      del.onclick = e=>{ e.stopPropagation(); if(confirm('Delete "'+beat.name+'"?')) socket.emit("deleteBeat",beat.id); };
       tab.appendChild(del);
     }
     wrap.appendChild(tab);
   });
 }
 
-// ── Rack ─────────────────────────────────────────────────────────
 function buildRack(){
-  const rack=document.getElementById("rack");
-  rack.innerHTML=""; layerBtns={};
+  const rack = document.getElementById("rack");
+  rack.innerHTML = ""; layerBtns = {};
 
-  const beat=getActiveBeat(); if(!beat) return;
+  const beat = getActiveBeat(); if(!beat) return;
 
-  // Sync synth nodes
-  beat.layers.forEach(layer=>{
-    const ex=synthMap[layer.id];
-    if(!ex){
-      if(layer.inst!=="__CUSTOM__") spawnSynth(layer.id, layer.inst||"Grand Piano", layer.fx);
-    } else if(!ex.isPlayer && ex.key!==(layer.inst||"Grand Piano")){
-      spawnSynth(layer.id, layer.inst||"Grand Piano", layer.fx);
-    }
-    setVol(layer.id, layer.vol??-6);
-  });
-  // Prune orphan nodes
-  for(const id of Object.keys(synthMap)){
-    if(!beat.layers.find(l=>l.id===id)){
-      try{synthMap[id].node.dispose();}catch(_){}
-      const fxc=fxMap[id];
-      if(fxc) for(const n of Object.values(fxc)){ try{n.dispose();}catch(_){} }
-      delete synthMap[id]; delete fxMap[id];
+  // Sync synth nodes only when audio is ready
+  if(audioReady){
+    beat.layers.forEach(layer=>{
+      const ex = synthMap[layer.id];
+      if(!ex){
+        if(layer.inst !== "__CUSTOM__")
+          spawnSynth(layer.id, layer.inst||"Grand Piano", layer.fx);
+      } else if(!ex.isPlayer && ex.key !== (layer.inst||"Grand Piano")){
+        spawnSynth(layer.id, layer.inst||"Grand Piano", layer.fx);
+      }
+      setVol(layer.id, layer.vol ?? -6);
+    });
+    // Prune orphan synth nodes
+    for(const id of Object.keys(synthMap)){
+      if(!beat.layers.find(l=>l.id===id)){
+        try{ synthMap[id].node.dispose(); }catch(_){}
+        const fc = fxMap[id];
+        if(fc) for(const n of Object.values(fc)){ try{n.dispose();}catch(_){} }
+        delete synthMap[id]; delete fxMap[id];
+      }
     }
   }
 
-  beat.layers.forEach(layer=>buildLayerRow(rack,beat,layer));
+  beat.layers.forEach(layer=>buildLayerRow(rack, beat, layer));
 
-  const addBtn=document.createElement("button");
-  addBtn.className="add-layer"; addBtn.textContent="+ ADD LAYER";
-  addBtn.onclick=()=>socket.emit("addLayer",{beatId:beat.id,author:username});
+  const addBtn = document.createElement("button");
+  addBtn.className = "add-layer";
+  addBtn.textContent = "+ ADD LAYER";
+  addBtn.onclick = ()=>socket && socket.emit("addLayer",{ beatId:beat.id, author:username });
   rack.appendChild(addBtn);
 }
 
 function buildLayerRow(rack, beat, layer){
-  const col=userColor(layer.author||username);
-  const muted=mutedSet.has(layer.id);
-  const soloed=soloId===layer.id;
-  const drum=isDrum(layer.inst);
-  const fx=layer.fx||{};
+  const col    = userColor(layer.author||username);
+  const muted  = mutedSet.has(layer.id);
+  const soloed = soloId === layer.id;
+  const drum   = isDrum(layer.inst);
+  const fx     = layer.fx || {};
 
-  const row=document.createElement("div"); row.className="lrow";
+  const row = document.createElement("div"); row.className = "lrow";
 
-  // ── CONTROL PANEL ────────────────────────────────────────────
-  const ctrl=document.createElement("div"); ctrl.className="lctrl";
-  ctrl.style.borderLeft="3px solid "+col;
+  // ── CONTROL PANEL ──────────────────────────────────────────
+  const ctrl = document.createElement("div"); ctrl.className = "lctrl";
+  ctrl.style.borderLeft = "2px solid " + col;
 
-  // Row 0: author + label + actions
-  const hdr=document.createElement("div"); hdr.className="lhdr";
+  // hdr: author | label | actions
+  const hdr = document.createElement("div"); hdr.className = "lhdr";
 
-  const authorEl=document.createElement("span"); authorEl.className="l-author";
-  authorEl.textContent=layer.author||username; authorEl.style.color=col;
+  const authorEl = document.createElement("span"); authorEl.className = "l-author";
+  authorEl.textContent = layer.author||username; authorEl.style.color = col;
 
-  const labelInp=document.createElement("input"); labelInp.className="l-label";
-  labelInp.value=layer.label||""; labelInp.placeholder="label...";
-  labelInp.onchange=()=>socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"label",value:labelInp.value});
+  const labelInp = document.createElement("input"); labelInp.className = "l-label";
+  labelInp.value = layer.label||""; labelInp.placeholder = "label...";
+  labelInp.onchange = ()=>socket && socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"label",value:labelInp.value});
 
-  const acts=document.createElement("div"); acts.className="l-acts";
+  const acts = document.createElement("div"); acts.className = "l-acts";
 
-  const muteBtn=document.createElement("button"); muteBtn.className="ibtn"+(muted?" muted":""); muteBtn.title="Mute"; muteBtn.textContent="M";
-  muteBtn.onclick=()=>{ mutedSet.has(layer.id)?mutedSet.delete(layer.id):mutedSet.add(layer.id); buildRack(); };
+  const muteBtn = document.createElement("button");
+  muteBtn.className = "ibtn"+(muted?" muted":""); muteBtn.title="Mute"; muteBtn.textContent="M";
+  muteBtn.onclick = ()=>{ mutedSet.has(layer.id)?mutedSet.delete(layer.id):mutedSet.add(layer.id); buildRack(); };
 
-  const soloBtn=document.createElement("button"); soloBtn.className="ibtn"+(soloed?" soloed":""); soloBtn.title="Solo"; soloBtn.textContent="S";
-  soloBtn.onclick=()=>{ soloId=(soloId===layer.id)?null:layer.id; buildRack(); };
+  const soloBtn = document.createElement("button");
+  soloBtn.className = "ibtn"+(soloed?" soloed":""); soloBtn.title="Solo"; soloBtn.textContent="S";
+  soloBtn.onclick = ()=>{ soloId = (soloId===layer.id)?null:layer.id; buildRack(); };
 
-  const dupBtn=document.createElement("button"); dupBtn.className="ibtn"; dupBtn.title="Duplicate layer"; dupBtn.textContent="⧉";
-  dupBtn.onclick=()=>socket.emit("duplicateLayer",{beatId:beat.id,layerId:layer.id});
+  const dupBtn = document.createElement("button");
+  dupBtn.className = "ibtn"; dupBtn.title="Duplicate"; dupBtn.textContent="⧉";
+  dupBtn.onclick = ()=>socket && socket.emit("duplicateLayer",{beatId:beat.id,layerId:layer.id});
 
-  const delBtn=document.createElement("button"); delBtn.className="ibtn del"; delBtn.title="Remove layer"; delBtn.textContent="✕";
-  delBtn.onclick=()=>socket.emit("removeLayer",{beatId:beat.id,layerId:layer.id});
+  const delBtn = document.createElement("button");
+  delBtn.className = "ibtn del"; delBtn.title="Remove"; delBtn.textContent="✕";
+  delBtn.onclick = ()=>socket && socket.emit("removeLayer",{beatId:beat.id,layerId:layer.id});
 
-  acts.append(muteBtn,soloBtn,dupBtn,delBtn);
-  hdr.append(authorEl,labelInp,acts);
+  acts.append(muteBtn, soloBtn, dupBtn, delBtn);
+  hdr.append(authorEl, labelInp, acts);
   ctrl.appendChild(hdr);
 
-  // Row 1: instrument + note + sample btn
-  const r1=document.createElement("div"); r1.className="lrow1";
+  // r1: instrument select + note select + sample btn
+  const r1 = document.createElement("div"); r1.className = "lrow1";
 
-  const instSel=document.createElement("select"); instSel.className="isel";
-  for(const[cat,entries] of Object.entries(SYNTHS)){
-    const grp=document.createElement("optgroup"); grp.label=cat;
+  const instSel = document.createElement("select"); instSel.className = "isel";
+  for(const [cat, entries] of Object.entries(SYNTHS)){
+    const grp = document.createElement("optgroup"); grp.label = cat;
     for(const name of Object.keys(entries)){
-      const o=document.createElement("option"); o.value=o.textContent=name;
-      if((layer.inst||"Grand Piano")===name) o.selected=true;
+      const o = document.createElement("option"); o.value = o.textContent = name;
+      if((layer.inst||"Grand Piano") === name) o.selected = true;
       grp.appendChild(o);
     }
     instSel.appendChild(grp);
   }
   {
-    const grp=document.createElement("optgroup"); grp.label="CUSTOM SAMPLE";
-    const o=document.createElement("option"); o.value="__CUSTOM__";
-    o.textContent=customMap[layer.id]?"▶ "+customMap[layer.id].name:"Upload sample...";
-    if(layer.inst==="__CUSTOM__") o.selected=true;
+    const grp = document.createElement("optgroup"); grp.label = "CUSTOM SAMPLE";
+    const o   = document.createElement("option");   o.value = "__CUSTOM__";
+    o.textContent = customMap[layer.id] ? "▶ "+customMap[layer.id].name : "Upload sample...";
+    if(layer.inst === "__CUSTOM__") o.selected = true;
     grp.appendChild(o); instSel.appendChild(grp);
   }
 
-  const fileInp=document.createElement("input");
+  const fileInp = document.createElement("input");
   fileInp.type="file"; fileInp.accept="audio/*"; fileInp.style.display="none";
-  fileInp.onchange=async()=>{
-    const file=fileInp.files[0]; if(!file) return;
-    const url=URL.createObjectURL(file);
-    const old=synthMap[layer.id]; if(old){ try{old.node.dispose();}catch(_){} }
-    // Build fx chain first, then player into it
+  fileInp.onchange = async()=>{
+    const file = fileInp.files[0]; if(!file) return;
+    const url  = URL.createObjectURL(file);
+    const old  = synthMap[layer.id]; if(old){ try{old.node.dispose();}catch(_){} }
     buildFxChain(layer.id, fx);
-    const player=new Tone.Player({url,loop:false}).connect(fxMap[layer.id].dist);
+    const player = new Tone.Player({url,loop:false}).connect(fxMap[layer.id].dist);
     await Tone.loaded();
-    player.volume.value=layer.vol??-6;
-    synthMap[layer.id]={key:"__CUSTOM__",node:player,isPlayer:true};
-    customMap[layer.id]={url,name:file.name};
-    layer.inst="__CUSTOM__";
-    socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"inst",value:"__CUSTOM__"});
-    toast("Sample: "+file.name,"ok"); buildRack();
+    player.volume.value = layer.vol ?? -6;
+    synthMap[layer.id]  = {key:"__CUSTOM__", node:player, isPlayer:true};
+    customMap[layer.id] = {url, name:file.name};
+    layer.inst = "__CUSTOM__";
+    socket && socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"inst",value:"__CUSTOM__"});
+    toast("Sample: "+file.name, "ok"); buildRack();
   };
 
-  instSel.onchange=()=>{
-    const val=instSel.value;
-    if(val==="__CUSTOM__"){ fileInp.click(); instSel.value=layer.inst||"Grand Piano"; return; }
-    layer.inst=val;
-    spawnSynth(layer.id,val,fx);
-    setVol(layer.id,layer.vol??-6);
-    socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"inst",value:val});
+  instSel.onchange = ()=>{
+    const val = instSel.value;
+    if(val === "__CUSTOM__"){ fileInp.click(); instSel.value = layer.inst||"Grand Piano"; return; }
+    layer.inst = val;
+    spawnSynth(layer.id, val, fx);
+    setVol(layer.id, layer.vol ?? -6);
+    socket && socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"inst",value:val});
     buildRack();
   };
 
-  const noteSel=document.createElement("select"); noteSel.className="msel";
-  noteSel.style.cssText="width:60px;display:"+(drum?"none":"");
+  const noteSel = document.createElement("select"); noteSel.className = "msel";
+  noteSel.style.cssText = "width:58px;display:"+(drum?"none":"");
   NOTES.forEach(n=>{
-    const o=document.createElement("option"); o.value=o.textContent=n;
-    if((layer.note||"C4")===n) o.selected=true; noteSel.appendChild(o);
+    const o = document.createElement("option"); o.value = o.textContent = n;
+    if((layer.note||"C4") === n) o.selected = true;
+    noteSel.appendChild(o);
   });
-  noteSel.onchange=()=>{ layer.note=noteSel.value; socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"note",value:noteSel.value}); };
+  noteSel.onchange = ()=>{
+    layer.note = noteSel.value;
+    socket && socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"note",value:noteSel.value});
+  };
 
-  const sampBtn=document.createElement("button"); sampBtn.className="samp"+(customMap[layer.id]?" loaded":""); sampBtn.title="Upload audio sample"; sampBtn.textContent="📁";
-  sampBtn.onclick=()=>fileInp.click();
+  const sampBtn = document.createElement("button");
+  sampBtn.className = "samp"+(customMap[layer.id]?" loaded":"");
+  sampBtn.title="Upload sample"; sampBtn.textContent="📁";
+  sampBtn.onclick = ()=>fileInp.click();
 
-  r1.append(instSel,noteSel,sampBtn,fileInp);
+  r1.append(instSel, noteSel, sampBtn, fileInp);
   ctrl.appendChild(r1);
 
-  // Row 2: SPEED slider (0.25× – 4×) + VOL slider
-  const r2=document.createElement("div"); r2.className="lrow2";
+  // r2: speed slider + volume slider
+  const r2 = document.createElement("div"); r2.className = "lrow2";
 
-  const spdRow=document.createElement("div"); spdRow.className="sl-row"; spdRow.style.flex="0 0 130px";
-  const spdLbl=document.createElement("span"); spdLbl.className="sl-lbl"; spdLbl.textContent="SPD";
-  const spdSl=document.createElement("input"); spdSl.type="range"; spdSl.min=0; spdSl.max=100; spdSl.step=1;
-  // Map 0–100 → bpmMult 0.25–4 on a log-ish scale
-  const SPEED_VALS=[0.25,0.33,0.5,0.75,1,1.5,2,3,4];
-  function spdToIdx(mult){ let best=4; let bd=99; SPEED_VALS.forEach((v,i)=>{ if(Math.abs(v-mult)<bd){bd=Math.abs(v-mult);best=i;} }); return best; }
-  function idxToSpd(idx){ return SPEED_VALS[Math.round(idx/(100/(SPEED_VALS.length-1)))]||1; }
-  // Inverse: value 0–100 → index 0–8
-  function valToIdx(v){ return Math.round(v/(100/(SPEED_VALS.length-1))); }
-  const initIdx=spdToIdx(layer.bpmMult||1);
-  spdSl.value=Math.round(initIdx*(100/(SPEED_VALS.length-1)));
-  const spdNum=document.createElement("span"); spdNum.className="sl-num";
-  spdNum.textContent=(layer.bpmMult||1)+"×";
+  const SPEED_VALS = [0.25,0.33,0.5,0.75,1,1.5,2,3,4];
+  const STEP_SIZE  = 100 / (SPEED_VALS.length - 1);
+  function spdToSliderVal(mult){
+    let best=4, bd=99;
+    SPEED_VALS.forEach((v,i)=>{ if(Math.abs(v-mult)<bd){bd=Math.abs(v-mult);best=i;} });
+    return Math.round(best * STEP_SIZE);
+  }
+  function sliderValToSpd(v){ return SPEED_VALS[Math.round(v/STEP_SIZE)] || 1; }
 
-  spdSl.addEventListener("input",()=>{
-    const mult=SPEED_VALS[valToIdx(+spdSl.value)]||1;
-    spdNum.textContent=mult+"×";
-    layer.bpmMult=mult;
-  });
-  spdSl.addEventListener("change",()=>{
-    const mult=SPEED_VALS[valToIdx(+spdSl.value)]||1;
-    layer.bpmMult=mult;
-    socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"bpmMult",value:mult});
-  });
-  spdRow.append(spdLbl,spdSl,spdNum);
+  const spdRow = document.createElement("div"); spdRow.className = "sl-row"; spdRow.style.flex = "0 0 130px";
+  const spdLbl = document.createElement("span"); spdLbl.className="sl-lbl"; spdLbl.textContent="SPD";
+  const spdSl  = document.createElement("input"); spdSl.type="range"; spdSl.min=0; spdSl.max=100; spdSl.step=1;
+  spdSl.value  = spdToSliderVal(layer.bpmMult||1);
+  const spdNum = document.createElement("span"); spdNum.className="sl-num"; spdNum.textContent=(layer.bpmMult||1)+"×";
+  spdSl.addEventListener("input",  ()=>{ const m=sliderValToSpd(+spdSl.value); spdNum.textContent=m+"×"; layer.bpmMult=m; });
+  spdSl.addEventListener("change", ()=>{ const m=sliderValToSpd(+spdSl.value); layer.bpmMult=m; socket && socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"bpmMult",value:m}); });
+  spdRow.append(spdLbl, spdSl, spdNum);
 
-  const volRow=document.createElement("div"); volRow.className="sl-row";
-  const volLbl=document.createElement("span"); volLbl.className="sl-lbl"; volLbl.textContent="VOL";
-  const volSl=document.createElement("input"); volSl.type="range"; volSl.min=-36; volSl.max=6; volSl.value=layer.vol??-6;
-  const volNum=document.createElement("span"); volNum.className="sl-num"; volNum.textContent=(layer.vol??-6)+"dB";
-  volSl.addEventListener("input",()=>{ const v=+volSl.value; volNum.textContent=v+"dB"; setVol(layer.id,v); });
-  volSl.addEventListener("change",()=>{ const v=+volSl.value; layer.vol=v; socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"vol",value:v}); });
-  volRow.append(volLbl,volSl,volNum);
+  const volRow = document.createElement("div"); volRow.className = "sl-row";
+  const volLbl = document.createElement("span"); volLbl.className="sl-lbl"; volLbl.textContent="VOL";
+  const volSl  = document.createElement("input"); volSl.type="range"; volSl.min=-36; volSl.max=6; volSl.value=layer.vol??-6;
+  const volNum = document.createElement("span"); volNum.className="sl-num"; volNum.textContent=(layer.vol??-6)+"dB";
+  volSl.addEventListener("input",  ()=>{ const v=+volSl.value; volNum.textContent=v+"dB"; setVol(layer.id,v); });
+  volSl.addEventListener("change", ()=>{ const v=+volSl.value; layer.vol=v; socket && socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"vol",value:v}); });
+  volRow.append(volLbl, volSl, volNum);
 
-  r2.append(spdRow,volRow);
+  r2.append(spdRow, volRow);
   ctrl.appendChild(r2);
 
-  // Row 3: FX CHAIN sliders — Distortion, Filter, Delay
-  const r3=document.createElement("div"); r3.className="lrow3"; r3.style.flexWrap="wrap"; r3.style.gap="4px";
+  // r3: FX sliders — DIST, FILT, DLY, CRUSH — no wrapping
+  const r3 = document.createElement("div"); r3.className = "lrow3";
 
-  function makeFxSlider(lbl, min, max, val, step, fmt, onChange){
-    const wrap=document.createElement("div"); wrap.className="sl-row"; wrap.style.flex="1"; wrap.style.minWidth="90px";
-    const l=document.createElement("span"); l.className="sl-lbl"; l.textContent=lbl;
-    const sl=document.createElement("input"); sl.type="range"; sl.min=min; sl.max=max; sl.value=val; sl.step=step||1;
-    const num=document.createElement("span"); num.className="sl-num"; num.textContent=fmt(val);
-    sl.addEventListener("input",()=>{ num.textContent=fmt(+sl.value); onChange(+sl.value,false); });
-    sl.addEventListener("change",()=>{ onChange(+sl.value,true); });
-    wrap.append(l,sl,num); return wrap;
+  function makeFxSl(lbl, min, max, val, fmt, onChange){
+    const wrap = document.createElement("div"); wrap.className="sl-row";
+    const l    = document.createElement("span"); l.className="sl-lbl"; l.textContent=lbl;
+    const sl   = document.createElement("input"); sl.type="range"; sl.min=min; sl.max=max; sl.value=val; sl.step=1;
+    const num  = document.createElement("span"); num.className="sl-num"; num.textContent=fmt(val);
+    sl.addEventListener("input",  ()=>{ num.textContent=fmt(+sl.value); onChange(+sl.value,false); });
+    sl.addEventListener("change", ()=>{ onChange(+sl.value,true); });
+    wrap.append(l, sl, num); return wrap;
   }
 
-  // Distortion 0–100 → 0–1
-  r3.appendChild(makeFxSlider("DIST",0,100,Math.round((fx.distortion||0)*100),1,v=>v+"%",(v,send)=>{
-    fx.distortion=v/100;
-    const chain=fxMap[layer.id]; if(chain) chain.dist.distortion=v/100;
-    if(send){ layer.fx=fx; socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"fx",value:fx}); }
+  r3.appendChild(makeFxSl("DIST",0,100,Math.round((fx.distortion||0)*100),v=>v+"%",(v,send)=>{
+    fx.distortion = v/100;
+    const c = fxMap[layer.id]; if(c) c.dist.distortion = v/100;
+    if(send){ layer.fx=fx; socket&&socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"fx",value:fx}); }
   }));
 
-  // Filter cutoff 200–20000 Hz (log mapped via slider 1–100)
-  const initFilterPct=Math.round(Math.log10((fx.filterFreq||20000)/200)/Math.log10(100)*100);
-  r3.appendChild(makeFxSlider("FILT",1,100,initFilterPct,1,v=>{
-    const hz=Math.round(200*Math.pow(100,(v/100)));
+  const initFP = Math.round(Math.log10((fx.filterFreq||20000)/200)/Math.log10(100)*100);
+  r3.appendChild(makeFxSl("FILT",1,100,initFP,v=>{
+    const hz=Math.round(200*Math.pow(100,v/100));
     return hz>=1000?(hz/1000).toFixed(1)+"k":hz+"Hz";
   },(v,send)=>{
-    const hz=Math.round(200*Math.pow(100,(v/100)));
+    const hz=Math.round(200*Math.pow(100,v/100));
     fx.filterFreq=hz;
-    const chain=fxMap[layer.id]; if(chain) chain.filter.frequency.value=hz;
-    if(send){ layer.fx=fx; socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"fx",value:fx}); }
+    const c=fxMap[layer.id]; if(c) c.filter.frequency.value=hz;
+    if(send){ layer.fx=fx; socket&&socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"fx",value:fx}); }
   }));
 
-  // Delay 0–100 → 0–0.75s wet
-  r3.appendChild(makeFxSlider("DLY",0,100,Math.round((fx.delayWet||0)*100),1,v=>v+"%",(v,send)=>{
+  r3.appendChild(makeFxSl("DLY",0,100,Math.round((fx.delayWet||0)*100),v=>v+"%",(v,send)=>{
     fx.delayWet=v/100;
-    const chain=fxMap[layer.id]; if(chain) chain.delay.wet.value=v/100;
-    if(send){ layer.fx=fx; socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"fx",value:fx}); }
+    const c=fxMap[layer.id]; if(c) c.delay.wet.value=v/100;
+    if(send){ layer.fx=fx; socket&&socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"fx",value:fx}); }
   }));
 
-  // Bit crush depth 1–8 (8=off, lower=crunchier)
-  r3.appendChild(makeFxSlider("CRUSH",1,8,fx.bitcrush||8,1,v=>v===8?"OFF":v,(v,send)=>{
+  r3.appendChild(makeFxSl("CRUSH",1,8,fx.bitcrush||8,v=>v===8?"OFF":v+"b",(v,send)=>{
     fx.bitcrush=v;
-    const chain=fxMap[layer.id]; if(chain){ try{ chain.crush.bits=v; }catch(_){} }
-    if(send){ layer.fx=fx; socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"fx",value:fx}); }
+    const c=fxMap[layer.id]; if(c){ try{c.crush.bits=v;}catch(_){} }
+    if(send){ layer.fx=fx; socket&&socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"fx",value:fx}); }
   }));
 
   ctrl.appendChild(r3);
   row.appendChild(ctrl);
 
-  // ── STEP BUTTONS ──────────────────────────────────────────────
-  const stepsEl=document.createElement("div"); stepsEl.className="steps";
-  layerBtns[layer.id]=[];
-  const onColor=drum?col:"var(--accent)";
+  // ── STEP BUTTONS ─────────────────────────────────────────
+  const stepsEl = document.createElement("div"); stepsEl.className = "steps";
+  layerBtns[layer.id] = [];
+  const onColor = drum ? col : "var(--accent)";
 
   (layer.pattern||[]).forEach((active,i)=>{
-    if(i>0&&i%4===0){ const g=document.createElement("div"); g.className="sgap"; stepsEl.appendChild(g); }
-    const btn=document.createElement("button");
-    btn.className="sbtn "+(Math.floor(i/4)%2===0?"d0":"d1")+(active?" on":"");
-    btn.style.background=active?onColor:"";
-    btn.onclick=()=>{
-      const cur=layer.pattern[i]; layer.pattern[i]=!cur;
-      btn.style.background=layer.pattern[i]?onColor:"";
-      layer.pattern[i]?btn.classList.add("on"):btn.classList.remove("on");
-      socket.emit("toggleStep",{beatId:beat.id,layerId:layer.id,stepIndex:i,val:layer.pattern[i]});
+    if(i > 0 && i%4 === 0){
+      const g = document.createElement("div"); g.className="sgap"; stepsEl.appendChild(g);
+    }
+    const btn = document.createElement("button");
+    btn.className = "sbtn " + (Math.floor(i/4)%2===0?"d0":"d1") + (active?" on":"");
+    if(active) btn.style.background = onColor;
+    btn.onclick = ()=>{
+      const cur = layer.pattern[i];
+      layer.pattern[i] = !cur;
+      btn.style.background = layer.pattern[i] ? onColor : "";
+      layer.pattern[i] ? btn.classList.add("on") : btn.classList.remove("on");
+      socket && socket.emit("toggleStep",{beatId:beat.id,layerId:layer.id,stepIndex:i,val:layer.pattern[i]});
     };
-    stepsEl.appendChild(btn); layerBtns[layer.id].push(btn);
+    stepsEl.appendChild(btn);
+    layerBtns[layer.id].push(btn);
   });
 
   row.appendChild(stepsEl);
@@ -881,119 +1168,155 @@ function buildLayerRow(rack, beat, layer){
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  SOCKET
+//  SOCKET EVENTS
 // ═══════════════════════════════════════════════════════════════
 function setupSocket(){
-  socket.on("connect",()=>{ document.getElementById("status").textContent="LIVE"; document.getElementById("status").classList.add("live"); });
-  socket.on("disconnect",()=>{ document.getElementById("status").textContent="OFFLINE"; document.getElementById("status").classList.remove("live"); });
-
-  socket.on("state",(ns)=>{
-    S=ns; Tone.Transport.bpm.value=S.bpm; buildUI();
+  socket.on("connect", ()=>{
+    document.getElementById("status").textContent = "LIVE";
+    document.getElementById("status").classList.add("live");
+  });
+  socket.on("disconnect", ()=>{
+    document.getElementById("status").textContent = "OFFLINE";
+    document.getElementById("status").classList.remove("live");
   });
 
-  socket.on("stepToggled",({beatId,layerId,stepIndex,val})=>{
-    const beat=S.beats.find(b=>b.id===beatId); if(!beat) return;
-    const layer=beat.layers.find(l=>l.id===layerId); if(!layer) return;
-    layer.pattern[stepIndex]=val;
-    const btns=layerBtns[layerId]; if(!btns||!btns[stepIndex]) return;
-    const onColor=isDrum(layer.inst)?userColor(layer.author||username):"var(--accent)";
-    btns[stepIndex].style.background=val?onColor:"";
-    val?btns[stepIndex].classList.add("on"):btns[stepIndex].classList.remove("on");
+  socket.on("state", ns=>{
+    S = ns;
+    Tone.Transport.bpm.value = S.bpm;
+    if(audioReady) buildUI();
+    else {
+      // Pre-audio: update BPM display only, don't call buildRack (synths not ready)
+      document.getElementById("proj-name").textContent = S.projectName;
+      document.getElementById("bpm-val").textContent   = S.bpm;
+    }
   });
 
-  socket.on("playUpdate",p=>{
-    playing=p;
-    const btn=document.getElementById("play-btn");
-    if(p){ Tone.Transport.start(); btn.textContent="⏸ PAUSE"; btn.classList.add("on"); }
-    else { Tone.Transport.pause(); btn.textContent="▶ PLAY";  btn.classList.remove("on"); }
+  socket.on("stepToggled", ({beatId,layerId,stepIndex,val})=>{
+    const beat = S.beats.find(b=>b.id===beatId); if(!beat) return;
+    const layer = beat.layers.find(l=>l.id===layerId); if(!layer) return;
+    layer.pattern[stepIndex] = val;
+    const btns = layerBtns[layerId]; if(!btns||!btns[stepIndex]) return;
+    const onColor = isDrum(layer.inst) ? userColor(layer.author||username) : "var(--accent)";
+    btns[stepIndex].style.background = val ? onColor : "";
+    val ? btns[stepIndex].classList.add("on") : btns[stepIndex].classList.remove("on");
   });
 
-  socket.on("bpmUpdate",v=>{ S.bpm=v; Tone.Transport.bpm.value=v; document.getElementById("bpm-sl").value=v; document.getElementById("bpm-val").textContent=v; });
-
-  socket.on("projectList",list=>{
-    const sel=document.getElementById("proj-loader");
-    sel.innerHTML='<option value="">LOAD PROJECT...</option>';
-    list.forEach(name=>{ const o=document.createElement("option"); o.value=o.textContent=name; sel.appendChild(o); });
+  // FIX: handle layerParamUpdate that the server emits for vol changes
+  socket.on("layerParamUpdate", ({beatId, layerId, key, value})=>{
+    const beat = S.beats.find(b=>b.id===beatId); if(!beat) return;
+    const layer = beat.layers.find(l=>l.id===layerId); if(!layer) return;
+    layer[key] = value;
+    if(key === "vol") setVol(layerId, value);
+    else if(audioReady) buildUI(); // inst/note/label changes need a full rebuild
   });
 
-  socket.on("userCount",c=>{ document.getElementById("users").textContent="● "+c; });
-  socket.on("toast",(msg,type)=>toast(msg,type||""));
+  socket.on("playUpdate", p=>{
+    playing = p;
+    const btn = document.getElementById("play-btn");
+    if(p){
+      Tone.Transport.start();
+      btn.textContent = "⏸ PAUSE"; btn.classList.add("on");
+      // Try to unlock audio if it's still suspended
+      if(Tone.context.state === "suspended") doUnlockAudio();
+    } else {
+      Tone.Transport.pause();
+      btn.textContent = "▶ PLAY"; btn.classList.remove("on");
+    }
+  });
+
+  socket.on("bpmUpdate", v=>{
+    S.bpm = v; Tone.Transport.bpm.value = v;
+    document.getElementById("bpm-sl").value = v;
+    document.getElementById("bpm-val").textContent = v;
+  });
+
+  socket.on("projectList", list=>{
+    const sel = document.getElementById("proj-loader");
+    sel.innerHTML = '<option value="">LOAD PROJECT...</option>';
+    list.forEach(name=>{
+      const o = document.createElement("option"); o.value = o.textContent = name; sel.appendChild(o);
+    });
+  });
+
+  socket.on("userCount", c=>{ document.getElementById("users").textContent = "● "+c; });
+  socket.on("toast", (msg,type)=>toast(msg, type||""));
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  TRANSPORT
 // ═══════════════════════════════════════════════════════════════
-W.togglePlay=()=>socket&&socket.emit("togglePlay",!playing);
-W.stopTransport=()=>{
-  if(socket) socket.emit("togglePlay",false);
-  tick32=0; Tone.Transport.stop(); Tone.Transport.position=0;
+W.togglePlay     = ()=>socket && socket.emit("togglePlay", !playing);
+W.stopTransport  = ()=>{
+  if(socket) socket.emit("togglePlay", false);
+  tick32 = 0; Tone.Transport.stop(); Tone.Transport.position = 0;
   Object.values(layerBtns).forEach(btns=>btns.forEach(b=>b.classList.remove("hd")));
 };
-W.clearGrid=()=>{ const b=getActiveBeat(); if(b&&socket) socket.emit("clearGrid",b.id); };
-W.bpmUI=(v)=>{ document.getElementById("bpm-val").textContent=v; Tone.Transport.bpm.value=v; };
-W.sendBPM=(v)=>socket&&socket.emit("setBPM",v);
-W.changeSteps=(v)=>socket&&socket.emit("changeSteps",v);
-W.setReverb=(v)=>{
-  document.getElementById("reverb-val").textContent=v+"%";
-  if(masterVerb) masterVerb.wet.value=v/100;
+W.clearGrid  = ()=>{ const b=getActiveBeat(); if(b&&socket) socket.emit("clearGrid",b.id); };
+W.bpmUI      = v=>{ document.getElementById("bpm-val").textContent=v; Tone.Transport.bpm.value=v; };
+W.sendBPM    = v=>socket && socket.emit("setBPM", v);
+W.changeSteps= v=>socket && socket.emit("changeSteps", v);
+W.setReverb  = v=>{
+  document.getElementById("reverb-val").textContent = v+"%";
+  if(masterVerb) masterVerb.wet.value = v/100;
 };
 
 // ═══════════════════════════════════════════════════════════════
 //  PROJECT
 // ═══════════════════════════════════════════════════════════════
-W.saveProject=()=>{ const n=prompt("Save as:",S.projectName); if(n&&n.trim()&&socket) socket.emit("saveProject",n.trim()); };
-W.renameProject=()=>{ const n=prompt("Rename:",S.projectName); if(n&&n.trim()&&socket) socket.emit("renameProject",n.trim()); };
-W.loadProject=name=>{
+W.saveProject  = ()=>{ const n=prompt("Save as:",S.projectName); if(n&&n.trim()&&socket) socket.emit("saveProject",n.trim()); };
+W.renameProject= ()=>{ const n=prompt("Rename:",S.projectName); if(n&&n.trim()&&socket) socket.emit("renameProject",n.trim()); };
+W.loadProject  = name=>{
   if(!name||!socket) return;
   for(const id of Object.keys(synthMap)){ try{synthMap[id].node.dispose();}catch(_){} }
-  const allFx=Object.values(fxMap); allFx.forEach(fx=>{ for(const n of Object.values(fx)){ try{n.dispose();}catch(_){} } });
+  Object.values(fxMap).forEach(f=>{ for(const n of Object.values(f)){ try{n.dispose();}catch(_){} } });
   synthMap={}; fxMap={}; customMap={}; mutedSet=new Set(); soloId=null;
-  socket.emit("loadProject",name);
-  document.getElementById("proj-loader").value="";
+  socket.emit("loadProject", name);
+  document.getElementById("proj-loader").value = "";
 };
 
 // ═══════════════════════════════════════════════════════════════
 //  BEATS
 // ═══════════════════════════════════════════════════════════════
-W.addBeat=()=>{ const n=prompt("Beat name:","Beat "+(S.beats.length+1)); if(n&&n.trim()&&socket) socket.emit("addBeat",n.trim()); };
+W.addBeat = ()=>{
+  const n = prompt("Beat name:", "Beat "+(S.beats.length+1));
+  if(n && n.trim() && socket) socket.emit("addBeat", n.trim());
+};
 
 // ═══════════════════════════════════════════════════════════════
 //  EXPORT / RECORD
 // ═══════════════════════════════════════════════════════════════
-W.toggleRecord=async()=>{
+W.toggleRecord = async()=>{
   if(!recorder){ toast("Start the studio first","err"); return; }
   if(!recording){
-    await recorder.start(); recording=true;
-    document.getElementById("rec-btn").textContent="⬤ STOP";
+    await recorder.start(); recording = true;
+    document.getElementById("rec-btn").textContent = "⬤ STOP";
     document.getElementById("rec-btn").classList.add("on");
     toast("Recording...");
-  }else{
-    recording=false;
-    const blob=await recorder.stop();
-    document.getElementById("rec-btn").textContent="⬤ RECORD";
+  } else {
+    recording = false;
+    const blob = await recorder.stop();
+    document.getElementById("rec-btn").textContent = "⬤ RECORD";
     document.getElementById("rec-btn").classList.remove("on");
     await processExport(blob);
   }
 };
-
-W.exportAudio=async()=>{
+W.exportAudio = async()=>{
   if(!recorder){ toast("Start the studio first","err"); return; }
   if(recording){ toast("Stop recording first","err"); return; }
-  if(!playing){ toast("Press PLAY first, then click EXPORT","err"); return; }
-  const bars=2, dur=bars*S.steps*(60/S.bpm/4)*1000+300;
+  if(!playing){ toast("Press PLAY first, then EXPORT","err"); return; }
+  const bars = 2, dur = bars * S.steps * (60/S.bpm/4) * 1000 + 300;
   toast("Auto-recording "+bars+" bars...");
   await recorder.start();
   await new Promise(r=>setTimeout(r,dur));
-  const blob=await recorder.stop();
+  const blob = await recorder.stop();
   await processExport(blob);
 };
-
 async function processExport(webmBlob){
   toast("Encoding...");
   try{
-    const ab=await webmBlob.arrayBuffer();
-    const actx=new AudioContext();
-    const decoded=await actx.decodeAudioData(ab);
+    const ab      = await webmBlob.arrayBuffer();
+    const actx    = new AudioContext();
+    const decoded = await actx.decodeAudioData(ab);
     const nch=decoded.numberOfChannels, sr=decoded.sampleRate;
     const L=decoded.getChannelData(0), R=nch>1?decoded.getChannelData(1):L;
     const f2i=f32=>{ const o=new Int16Array(f32.length); for(let i=0;i<f32.length;i++) o[i]=Math.max(-32768,Math.min(32767,f32[i]*32768)); return o; };
@@ -1011,9 +1334,13 @@ async function processExport(webmBlob){
     toast("Saved as WebM","err");
   }
 }
-function dlBlob(blob,name){ const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(url),5000); }
+function dlBlob(blob,name){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),5000);
+}
 
-// ── kick off ──────────────────────────────────────────────────
+// ── KICK OFF ───────────────────────────────────────────────────
 boot();
 </script>
 </body>
