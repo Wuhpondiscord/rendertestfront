@@ -584,11 +584,12 @@
 //  In browser: hit Render directly.
 // ═══════════════════════════════════════════════════════════════
 // Detect Discord Activity environment.
+// IMPORTANT: only match *.discordsays.com — NOT generic "discord" hostnames.
+// "wuhpondiscord.github.io" contains "discord" but is NOT a Discord Activity.
 const _hostname  = location.hostname;
 const _href      = location.href;
 const IN_DISCORD = _hostname.endsWith(".discordsays.com")
-                || _hostname === "discordsays.com"
-                || _hostname.includes("discord");
+                || _hostname === "discordsays.com";
 
 const RENDER_URL  = "https://beat-backend-5nnu.onrender.com";
 
