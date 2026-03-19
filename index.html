@@ -1180,7 +1180,7 @@ function buildRack(){
       } else if(!ex.isPlayer && ex.key !== (layer.inst||"Grand Piano")){
         spawnSynth(layer.id, layer.inst||"Grand Piano", layer.fx);
       }
-      setVol(layer.id, layer.vol ?? -6);
+      setVol(layer.id, (layer.vol != null ? layer.vol : -6));
     });
     // Prune orphan synth nodes
     for(const id of Object.keys(synthMap)){
@@ -1277,7 +1277,7 @@ function buildLayerRow(rack, beat, layer){
     buildFxChain(layer.id, fx);
     const player = new Tone.Player({url,loop:false}).connect(fxMap[layer.id].dist);
     await Tone.loaded();
-    player.volume.value = layer.vol ?? -6;
+    player.volume.value = (layer.vol != null ? layer.vol : -6);
     synthMap[layer.id]  = {key:"__CUSTOM__", node:player, isPlayer:true};
     customMap[layer.id] = {url, name:file.name};
     layer.inst = "__CUSTOM__";
@@ -1290,7 +1290,7 @@ function buildLayerRow(rack, beat, layer){
     if(val === "__CUSTOM__"){ fileInp.click(); instSel.value = layer.inst||"Grand Piano"; return; }
     layer.inst = val;
     spawnSynth(layer.id, val, fx);
-    setVol(layer.id, layer.vol ?? -6);
+    setVol(layer.id, (layer.vol != null ? layer.vol : -6));
     socket && socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"inst",value:val});
     buildRack();
   };
@@ -1338,8 +1338,8 @@ function buildLayerRow(rack, beat, layer){
 
   const volRow = document.createElement("div"); volRow.className = "sl-row";
   const volLbl = document.createElement("span"); volLbl.className="sl-lbl"; volLbl.textContent="VOL";
-  const volSl  = document.createElement("input"); volSl.type="range"; volSl.min=-36; volSl.max=6; volSl.value=layer.vol??-6;
-  const volNum = document.createElement("span"); volNum.className="sl-num"; volNum.textContent=(layer.vol??-6)+"dB";
+  const volSl  = document.createElement("input"); volSl.type="range"; volSl.min=-36; volSl.max=6; volSl.value=(layer.vol != null ? layer.vol : -6);
+  const volNum = document.createElement("span"); volNum.className="sl-num"; volNum.textContent=((layer.vol != null ? layer.vol : -6))+"dB";
   volSl.addEventListener("input",  ()=>{ const v=+volSl.value; volNum.textContent=v+"dB"; setVol(layer.id,v); });
   volSl.addEventListener("change", ()=>{ const v=+volSl.value; layer.vol=v; socket && socket.emit("updateLayer",{beatId:beat.id,layerId:layer.id,key:"vol",value:v}); });
   volRow.append(volLbl, volSl, volNum);
