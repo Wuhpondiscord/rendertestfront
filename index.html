@@ -1195,7 +1195,7 @@ function buildUI(){
   document.getElementById("bpm-sl").value = S.bpm;
   document.getElementById("bpm-val").textContent = S.bpm;
   document.getElementById("step-sel").value = S.steps;
-  Tone.Transport.bpm.value = S.bpm;
+  if(audioReady){ try{ Tone.Transport.bpm.value = S.bpm; }catch(_){} }
   buildBeatTabs();
   buildRack();
 }
@@ -1525,10 +1525,10 @@ function setupSocket(){
 
   socket.on("state", ns=>{
     S = ns;
-    Tone.Transport.bpm.value = S.bpm;
-    if(audioReady) buildUI();
-    else {
-      // Pre-audio: update BPM display only, don't call buildRack (synths not ready)
+    if(audioReady){
+      try{ Tone.Transport.bpm.value = S.bpm; }catch(_){}
+      buildUI();
+    } else {
       document.getElementById("proj-name").textContent = S.projectName;
       document.getElementById("bpm-val").textContent   = S.bpm;
     }
@@ -1557,18 +1557,18 @@ function setupSocket(){
     playing = p;
     const btn = document.getElementById("play-btn");
     if(p){
-      Tone.Transport.start();
+      if(audioReady){ try{ Tone.Transport.start(); }catch(_){} }
       btn.textContent = "⏸ PAUSE"; btn.classList.add("on");
-      // Try to unlock audio if it's still suspended
-      if(Tone.context.state === "suspended") doUnlockAudio();
+      if(audioReady && Tone.context.state === "suspended") doUnlockAudio();
     } else {
-      Tone.Transport.pause();
+      if(audioReady){ try{ Tone.Transport.pause(); }catch(_){} }
       btn.textContent = "▶ PLAY"; btn.classList.remove("on");
     }
   });
 
   socket.on("bpmUpdate", v=>{
-    S.bpm = v; Tone.Transport.bpm.value = v;
+    S.bpm = v;
+    if(audioReady){ try{ Tone.Transport.bpm.value = v; }catch(_){} }
     document.getElementById("bpm-sl").value = v;
     document.getElementById("bpm-val").textContent = v;
   });
@@ -1591,11 +1591,12 @@ function setupSocket(){
 W.togglePlay     = ()=>socket && socket.emit("togglePlay", !playing);
 W.stopTransport  = ()=>{
   if(socket) socket.emit("togglePlay", false);
-  tick32 = 0; Tone.Transport.stop(); Tone.Transport.position = 0;
+  tick32 = 0;
+  if(audioReady){ try{ Tone.Transport.stop(); Tone.Transport.position = 0; }catch(_){} }
   Object.values(layerBtns).forEach(btns=>btns.forEach(b=>b.classList.remove("hd")));
 };
 W.clearGrid  = ()=>{ const b=getActiveBeat(); if(b&&socket) socket.emit("clearGrid",b.id); };
-W.bpmUI      = v=>{ document.getElementById("bpm-val").textContent=v; Tone.Transport.bpm.value=v; };
+W.bpmUI      = v=>{ document.getElementById("bpm-val").textContent=v; if(audioReady){ try{ Tone.Transport.bpm.value=v; }catch(_){} } };
 W.sendBPM    = v=>socket && socket.emit("setBPM", v);
 W.changeSteps= v=>socket && socket.emit("changeSteps", v);
 W.setReverb  = v=>{
