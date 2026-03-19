@@ -584,8 +584,6 @@
 //  In browser: hit Render directly.
 // ═══════════════════════════════════════════════════════════════
 // Detect Discord Activity environment.
-// Discord serves Activities on {appId}.discordsays.com
-// Log the raw hostname so we can see exactly what domain is used.
 const _hostname  = location.hostname;
 const _href      = location.href;
 const IN_DISCORD = _hostname.endsWith(".discordsays.com")
@@ -593,10 +591,20 @@ const IN_DISCORD = _hostname.endsWith(".discordsays.com")
                 || _hostname.includes("discord");
 
 const RENDER_URL  = "https://beat-backend-5nnu.onrender.com";
-const API_BASE    = IN_DISCORD ? "/api" : RENDER_URL + "/api";
-const SOCKET_PATH = "/api/socket.io";
+
+// /.proxy/ prefix IS required for relative paths in Discord Activities.
+// External requests like https://render.com/... are blocked by CSP.
+// So in Discord: /.proxy/api/config → Discord proxy → Render /api/config
+// In browser:   full Render URL directly.
+const API_BASE = IN_DISCORD ? "/.proxy/api" : RENDER_URL + "/api";
+
+// Socket.io path must NOT contain dots — Discord URL mapping prefixes block them.
+// Server listens at /api/socketio. Client uses /.proxy/api/socketio in Discord.
+const SOCKET_PATH = IN_DISCORD ? "/.proxy/api/socketio" : "/api/socketio";
+
+// socket.io client script through proxy in Discord, CDN in browser
 const SOCKETIO_SCRIPT = IN_DISCORD
-  ? "/api/socket.io/socket.io.js"
+  ? "/.proxy/api/socketio/socket.io.js"
   : "https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js";
 
 const W = window;
