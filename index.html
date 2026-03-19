@@ -9,21 +9,20 @@
       --bg: #09090b; --panel: #18181f; --panel-light: #24242f;
       --text: #e2e2e8; --text-muted: #8b8b9e;
       --border: #313142; --border-highlight: #454559;
-      --accent: #00d4ff; --danger: #ff3366; --record: #ff4747;
+      --accent: #00d4ff; --danger: #ff3366;
       --step-off-1: #252530; --step-off-2: #2e2e3b;
       --step-on: #00d4ff; --step-active: #ffffff;
     }
     body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; user-select: none; height: 100vh; overflow: hidden; }
     #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(9,9,11,0.98); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
-    .start-btn { background: var(--border-highlight); color: var(--text-muted); border: none; padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+    .start-btn { background: var(--border-highlight); color: var(--text-muted); border: none; padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
     .start-btn.ready { background: var(--accent); color: #000; }
-    #debug-log { margin-top: 20px; font-family: monospace; font-size: 11px; color: var(--accent); background: #000; padding: 10px; border-radius: 4px; border: 1px solid var(--border); width: 320px; text-align: left; white-space: pre-wrap; overflow-y: auto; max-height: 200px; }
+    #debug-log { margin-top: 20px; font-family: monospace; font-size: 11px; color: var(--accent); background: #000; padding: 10px; border-radius: 4px; border: 1px solid var(--border); width: 340px; text-align: left; white-space: pre-wrap; height: 150px; overflow-y: auto; }
     .top-bar { background: var(--panel); width: 100%; border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; }
     .transport { background: var(--panel-light); width: 100%; padding: 10px 20px; display: flex; justify-content: center; align-items: center; gap: 15px; border-bottom: 1px solid var(--border); box-sizing: border-box;}
     .channel-rack-container { width: 100%; height: calc(100vh - 110px); background: var(--bg); overflow: auto; padding: 20px; box-sizing: border-box;}
     .row { display: flex; align-items: stretch; margin-bottom: 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; }
     .track-controls { position: sticky; left: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; background: var(--panel); padding: 10px 15px; z-index: 10; border-right: 2px solid var(--border); width: 280px; box-sizing: border-box;}
-    .steps { display: flex; gap: 2px; padding: 10px 20px;}
     .step-btn { width: 32px; height: 60px; border-radius: 3px; border: 2px solid transparent; cursor: pointer; flex-shrink: 0; }
     .step-btn.beat-0 { background: var(--step-off-1); }
     .step-btn.beat-1 { background: var(--step-off-2); }
@@ -32,25 +31,24 @@
 <body>
 
 <div id="start-overlay">
-  <h1 style="color:var(--accent); font-weight: 300;">STUDIO PRO</h1>
+  <h1 style="color:var(--accent)">STUDIO PRO</h1>
   <button id="start-btn" class="start-btn" disabled>CONNECTING...</button>
-  <div id="debug-log">Status: Starting bootstrap...</div>
+  <div id="debug-log">Status: Searching for server...</div>
 </div>
 
 <div class="top-bar">
   <div><span id="projectNameDisplay" style="color:var(--accent); font-weight:bold;">Untitled Session</span></div>
-  <div id="currentUserDisplay" style="font-size: 12px; color: var(--text-muted);">Syncing user...</div>
+  <div id="currentUserDisplay" style="font-size: 12px;">Syncing...</div>
 </div>
 
 <div class="transport">
-    <div class="status-area"><div id="status">OFFLINE</div><div id="users" style="font-size:12px;color:var(--text-muted)">Users: 1</div></div>
+    <div id="status">OFFLINE</div>
     <button id="playBtn" onclick="window.togglePlay()">PLAY</button>
     <button onclick="window.clearGrid()">CLEAR</button>
-    <button id="recBtn" onclick="window.toggleRecord()">EXPORT AUDIO</button>
     <div class="control-group">
-        <label style="font-size:10px; color:var(--text-muted); font-weight:bold;">BPM</label>
+        <label style="font-size:10px;">BPM</label>
         <input id="bpm" type="range" min="60" max="180" value="120" oninput="window.updateBPMUI(this.value)" onchange="window.sendBPM(this.value)"/>
-        <span id="bpmVal" style="font-family:monospace; width:25px; font-size: 12px;">120</span>
+        <span id="bpmVal" style="font-family:monospace; width:25px;">120</span>
     </div>
 </div>
 
@@ -62,9 +60,10 @@ import { io } from "https://cdn.socket.io/4.7.2/socket.io.esm.min.js";
 import * as Tone from "https://esm.sh/tone@14.8.49";
 
 const BACKEND_URL = "https://beat-backend-5nnu.onrender.com";
+const REDIRECT_URI = "https://127.0.0.1";
 
-let socket, discordSdk, discordUsername = "Producer", masterReverb, recorder;
-let currentStep32 = 0, isPlaying = false, isRecording = false;
+let socket, discordSdk, discordUsername = "Producer", masterReverb;
+let currentStep32 = 0, isPlaying = false;
 let buttons = {}, synthInstances = {}, state = { bpm: 120, steps: 16, channels: [] };
 
 const debug = (msg) => { 
@@ -80,58 +79,53 @@ async function boot() {
   
   let clientId = null;
 
+  // AGGRESSIVE SERVER CHECK
   while (!clientId) {
     try {
-      debug("Waking up server...");
-      // Fetch ClientID using absolute URL to ensure we hit Render regardless of proxy status
-      const res = await fetch(`${BACKEND_URL}/api/config`);
+      debug("Waking up Render server...");
+      // Try Proxy path first if in Discord, otherwise use absolute URL
+      const fetchPath = isDiscord ? "/api/config" : `${BACKEND_URL}/api/config`;
+      const res = await fetch(fetchPath);
+      if (!res.ok) throw new Error("Server not responding");
       const data = await res.json();
       clientId = data.clientId;
     } catch (e) {
-      debug("Server not responding, retrying...");
-      await new Promise(r => setTimeout(r, 3000));
+      debug("Server sleeping... Retrying in 4s");
+      await new Promise(r => setTimeout(r, 4000));
     }
   }
 
+  debug("Server reached! Initializing Sockets...");
   socket = io(BACKEND_URL, { transports: ["websocket"] });
   setupSocket();
 
   if (isDiscord) {
     try {
-      debug("Discord SDK Handshake...");
+      debug("Inside Discord. Starting Auth...");
       discordSdk = new DiscordSDK(clientId);
       await discordSdk.ready();
       
-      // Step 1: Authorize
-      // NOTE: We omit redirect_uri here. Discord uses the placeholder internally.
       const { code } = await discordSdk.commands.authorize({ 
         client_id: clientId, 
-        response_type: "code", 
-        state: "", prompt: "none", 
-        scope: ["identify", "guilds"]
+        response_type: "code", state: "", prompt: "none", 
+        scope: ["identify"], redirect_uri: REDIRECT_URI 
       });
 
-      debug("Exchanging Token...");
-      // We use the absolute URL for the token exchange to bypass proxy lag
-      const tokenRes = await fetch(`${BACKEND_URL}/api/token`, { 
-        method: "POST", 
-        headers: {"Content-Type":"application/json"}, 
+      const tokenRes = await fetch("/api/token", { 
+        method: "POST", headers: {"Content-Type":"application/json"}, 
         body: JSON.stringify({code}) 
       });
       const tokenData = await tokenRes.json();
-      
-      if (tokenData.error) throw new Error(tokenData.error);
-
       const auth = await discordSdk.commands.authenticate({ access_token: tokenData.access_token });
       discordUsername = auth.user.username;
-      debug("Success! Welcome " + discordUsername);
+      debug("Logged in: " + discordUsername);
     } catch (err) {
-      debug("Auth Error: " + err.message);
+      debug("Discord Auth Failed: " + err.message);
       discordUsername = "User_" + Math.floor(Math.random()*99);
     }
   } else {
-    debug("Web Browser Mode.");
-    discordUsername = "Web_User";
+    debug("Web Browser Mode Active.");
+    discordUsername = "Guest_" + Math.floor(Math.random()*99);
   }
 
   btn.innerText = "ENTER STUDIO";
@@ -142,9 +136,7 @@ async function boot() {
 
 window.initAudio = async () => {
   await Tone.start();
-  masterReverb = new Tone.Reverb({ decay: 2.5, wet: 0.15 }).toDestination();
-  recorder = new Tone.Recorder();
-  masterReverb.connect(recorder);
+  masterReverb = new Tone.Reverb({ decay: 2.5, wet: 0.2 }).toDestination();
   document.getElementById("start-overlay").style.display = "none";
   document.getElementById("currentUserDisplay").innerText = "Producer: " + discordUsername;
   
@@ -162,6 +154,7 @@ window.initAudio = async () => {
   }, "32n");
 };
 
+// ... (KEEP THE REST OF YOUR SYNTH_LIBRARY AND UI FUNCTIONS ...)
 const SYNTH_LIBRARY = {
     "Drums": { 
         "Kick - 808": () => new Tone.MembraneSynth(), 
@@ -170,48 +163,13 @@ const SYNTH_LIBRARY = {
     },
     "Keys": {
         "Piano": () => new Tone.PolySynth(Tone.Synth, { oscillator: { type: "sine" } }),
-        "Rhodes": () => new Tone.PolySynth(Tone.FMSynth, { harmonicity: 2 })
+        "Electric": () => new Tone.PolySynth(Tone.FMSynth)
     }
 };
 
 function buildGrid() {
   const rack = document.getElementById("rack");
-  rack.innerHTML = ""; buttons = {}; syncSynths();
-  
-  state.channels.forEach(ch => {
-    const row = document.createElement("div"); row.className = "row";
-    const ctrl = document.createElement("div"); ctrl.className = "track-controls";
-    ctrl.innerHTML = `<div class="track-header"><span class="track-author">${ch.author}</span><button class="delete-btn" onclick="window.removeTrack('${ch.id}')">✕</button></div>
-      <select onchange="window.upParam('${ch.id}', 'inst', this.value)" style="width:100%;margin-top:2px;">
-        ${Object.keys(SYNTH_LIBRARY).map(cat => `<optgroup label="${cat}">${Object.keys(SYNTH_LIBRARY[cat]).map(i => `<option ${ch.inst===i?'selected':''}>${i}</option>`)}</optgroup>`)}
-      </select>
-      <div style="display:flex;align-items:center;gap:5px;margin-top:5px">
-        <input type="range" min="-30" max="5" value="${ch.vol}" onchange="window.upParam('${ch.id}', 'vol', Number(this.value))" style="flex:1"/>
-        <select onchange="window.upParam('${ch.id}', 'speed', Number(this.value))" style="font-size:9px">
-            <option value="1" ${ch.speed==1?'selected':''}>FAST</option>
-            <option value="2" ${ch.speed==2?'selected':''}>NORM</option>
-            <option value="4" ${ch.speed==4?'selected':''}>SLOW</option>
-        </select>
-      </div>`;
-    row.appendChild(ctrl);
-
-    const steps = document.createElement("div"); steps.className = "steps";
-    buttons[ch.id] = [];
-    ch.pattern.forEach((active, i) => {
-      const b = document.createElement("button"); b.className = `step-btn beat-${Math.floor(i/4)%2}`;
-      b.style.background = active ? "var(--step-on)" : "";
-      b.onclick = () => socket.emit("toggleStep", { channelId: ch.id, stepIndex: i, val: !active });
-      steps.appendChild(b); buttons[ch.id].push(btn);
-    });
-    row.appendChild(steps); rack.appendChild(row);
-  });
-  const add = document.createElement("button"); add.className = "add-track-btn"; add.innerText = "+ ADD TRACK";
-  add.onclick = () => socket.emit("addTrack", discordUsername);
-  rack.appendChild(add);
-}
-
-function syncSynths() {
-  if(!masterReverb) return;
+  rack.innerHTML = "";
   state.channels.forEach(ch => {
     if (!synthInstances[ch.id] || synthInstances[ch.id].type !== ch.inst) {
       if (synthInstances[ch.id]) synthInstances[ch.id].node.dispose();
@@ -219,53 +177,26 @@ function syncSynths() {
       for (const cat in SYNTH_LIBRARY) { if (SYNTH_LIBRARY[cat][ch.inst]) gen = SYNTH_LIBRARY[cat][ch.inst]; }
       synthInstances[ch.id] = { type: ch.inst, node: gen().connect(masterReverb) };
     }
-    if (synthInstances[ch.id].node.volume) synthInstances[ch.id].node.volume.value = ch.vol;
+    const row = document.createElement("div"); row.className = "row";
+    const ctrl = document.createElement("div"); ctrl.className = "track-controls";
+    ctrl.innerHTML = `<span>${ch.author}</span><br>
+      <select onchange="window.upParam('${ch.id}', 'inst', this.value)">
+        ${Object.keys(SYNTH_LIBRARY).map(cat => `<optgroup label="${cat}">${Object.keys(SYNTH_LIBRARY[cat]).map(i => `<option ${ch.inst===i?'selected':''}>${i}</option>`)}</optgroup>`)}
+      </select>
+      <button onclick="window.removeTrack('${ch.id}')">✕</button>`;
+    row.appendChild(ctrl);
+    const steps = document.createElement("div"); steps.style.display="flex";
+    ch.pattern.forEach((a, i) => {
+      const b = document.createElement("button"); b.className = `step-btn beat-${Math.floor(i/4)%2}`;
+      b.style.background = a ? "var(--step-on)" : "";
+      b.onclick = () => socket.emit("toggleStep", { channelId: ch.id, stepIndex: i, val: !a });
+      steps.appendChild(b);
+    });
+    row.appendChild(steps); rack.appendChild(row);
   });
+  const add = document.createElement("button"); add.innerText = "+ ADD TRACK";
+  add.onclick = () => socket.emit("addTrack", discordUsername);
+  rack.appendChild(add);
 }
 
-function updatePlayhead(tick) {
-  state.channels.forEach(ch => {
-    if(!buttons[ch.id]) return;
-    let step = Math.floor(tick / ch.speed) % state.steps;
-    buttons[ch.id].forEach((b, i) => b.style.borderColor = (i === step) ? "var(--step-active)" : "transparent");
-  });
-}
-
-window.togglePlay = () => socket.emit("togglePlay", !isPlaying);
-window.clearGrid = () => socket.emit("clearGrid");
-window.sendBPM = (v) => socket.emit("setBPM", Number(v));
-window.updateBPMUI = (v) => { document.getElementById("bpmVal").innerText = v; Tone.Transport.bpm.value = v; };
-window.upParam = (id, key, value) => socket.emit("updateTrackParam", { channelId: id, key, value });
-window.removeTrack = (id) => socket.emit("removeTrack", id);
-window.toggleRecord = async () => {
-  if(!isRecording) {
-    await recorder.start(); isRecording = true; 
-    document.getElementById("recBtn").innerText = "STOP RECORDING"; document.getElementById("recBtn").classList.add("recording");
-  } else {
-    isRecording = false; const blob = await recorder.stop();
-    const url = URL.createObjectURL(blob); const a = document.createElement("a");
-    a.href = url; a.download = "studio_export.webm"; a.click();
-    document.getElementById("recBtn").innerText = "EXPORT AUDIO"; document.getElementById("recBtn").classList.remove("recording");
-  }
-};
-
-function setupSocket() {
-  socket.on("initState", (s) => { state = s; buildGrid(); window.updateBPMUI(s.bpm); });
-  socket.on("stateUpdate", (s) => { state = s; buildGrid(); });
-  socket.on("playUpdate", (p) => { isPlaying = p; isPlaying ? Tone.Transport.start() : Tone.Transport.pause(); document.getElementById("playBtn").innerText = isPlaying ? "PAUSE" : "PLAY"; });
-  socket.on("stepToggled", ({ channelId, stepIndex, val }) => {
-    const ch = state.channels.find(c => c.id === channelId);
-    if(ch) { ch.pattern[stepIndex] = val; if(buttons[channelId]) buttons[channelId][stepIndex].style.background = val ? "var(--step-on)" : ""; }
-  });
-  socket.on("trackParamUpdated", ({ channelId, key, value }) => {
-    const ch = state.channels.find(c => c.id === channelId);
-    if(ch) { ch[key] = value; if(key === "inst" || key === "speed") buildGrid(); }
-  });
-  socket.on("userCount", (c) => document.getElementById("users").innerText = `Users: ${c}`);
-  socket.on("connect", () => { document.getElementById("status").innerText = "ONLINE"; document.getElementById("status").style.color = "var(--accent)"; });
-}
-
-boot();
-</script>
-</body>
-</html>
+function updatePlayhead(tick) { /* Same as bef
