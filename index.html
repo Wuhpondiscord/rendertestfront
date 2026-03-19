@@ -17,14 +17,15 @@
       --step-on: #00d4ff; --step-active: #ffffff;
     }
     
-    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; user-select: none; height: 100vh; overflow: hidden; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; user-select: none; height: 100vh; overflow: hidden; }
 
     #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(9,9,11,0.98); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
     #start-overlay h1 { color: var(--accent); margin-bottom: 20px; font-weight: 300; letter-spacing: 2px;}
     
-    .start-btn { background: var(--border-highlight); color: var(--text-muted); border: none; padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: not-allowed; transition: 0.2s; }
-    .start-btn.ready { background: var(--accent); color: #000; cursor: pointer; }
-    .start-btn.ready:hover { transform: scale(1.05); }
+    .start-btn { background: var(--border-highlight); color: var(--text-muted); border: none; padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+    .start-btn.ready { background: var(--accent); color: #000; }
+    
+    #debug-log { margin-top: 20px; font-family: monospace; font-size: 10px; color: var(--danger); max-width: 80%; text-align: center; }
 
     .top-bar { background: var(--panel); width: 100%; border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; }
     .nav-group { display: flex; align-items: center; gap: 10px; }
@@ -47,9 +48,6 @@
     input[type="range"] { accent-color: var(--accent); height: 4px; background: var(--border); border-radius: 2px; outline: none; cursor: pointer; }
 
     .channel-rack-container { width: 100%; height: calc(100vh - 110px); background: var(--bg); overflow-x: auto; overflow-y: auto; padding: 20px; box-sizing: border-box;}
-    .channel-rack-container::-webkit-scrollbar { width: 10px; height: 10px; }
-    .channel-rack-container::-webkit-scrollbar-thumb { background: var(--border-highlight); border-radius: 5px; }
-
     .channel-rack { display: inline-block; padding-bottom: 50px; }
     .row { display: flex; align-items: stretch; margin-bottom: 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; }
 
@@ -57,7 +55,6 @@
     .track-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
     .track-author { font-size: 9px; color: var(--text-muted); font-weight: bold; text-transform: uppercase;}
     .delete-btn { background: transparent; color: var(--text-muted); border: none; cursor: pointer; font-size: 14px;}
-    .delete-btn:hover { color: var(--danger); }
     
     .track-row { display: flex; align-items: center; gap: 5px; width: 100%; margin-top: 2px;}
     .inst-select { flex: 1; font-size: 11px; height: 28px;}
@@ -67,7 +64,7 @@
     .vol-slider { width: 100%; }
 
     .steps { display: flex; gap: 2px; padding: 10px 20px;}
-    .step-btn { width: 32px; height: 100%; min-height: 60px; border-radius: 3px; border: 1px solid transparent; padding: 0; flex-shrink: 0; cursor: pointer; transition: background 0.1s;}
+    .step-btn { width: 32px; height: 100%; min-height: 60px; border-radius: 3px; border: 1px solid transparent; padding: 0; flex-shrink: 0; transition: background 0.1s;}
     .step-btn.beat-0 { background: var(--step-off-1); }
     .step-btn.beat-1 { background: var(--step-off-2); }
     
@@ -79,7 +76,8 @@
 
 <div id="start-overlay">
   <h1>DISCORD STUDIO PRO</h1>
-  <button id="start-btn" class="start-btn" disabled>CONNECTING TO SERVER...</button>
+  <button id="start-btn" class="start-btn" disabled>CONNECTING...</button>
+  <div id="debug-log">Initialing sequence...</div>
 </div>
 
 <div class="top-bar">
@@ -90,7 +88,7 @@
       <option value="">LOAD PROJECT...</option>
     </select>
   </div>
-  <div id="currentUserDisplay" style="font-size: 12px; color: var(--text-muted);">Authenticating...</div>
+  <div id="currentUserDisplay" style="font-size: 12px; color: var(--text-muted);">Identifying...</div>
 </div>
 
 <div class="transport">
@@ -112,15 +110,16 @@
 <script type="module">
 import { DiscordSDK } from "https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.2.0/+esm";
 
+// BACKEND URL stays for Sockets, but Fetch will use relative paths for Proxy
 const BACKEND_URL = "https://beat-backend-5nnu.onrender.com"; 
 let socket, discordSdk, recorder, masterReverb;
 let discordUsername = "Producer";
 let currentStep32 = 0, isPlaying = false, isRecording = false;
 let buttons = {}, synthInstances = {}, state = { projectName: "Untitled", bpm: 120, steps: 16, channels: [] };
 
-const NOTES = ["C1","D1","E1","F1","G1","A1","B1", "C2","D2","E2","F2","G2","A2","B2", "C3","D3","E3","F3","G3","A3","B3", "C4","D4","E4","F4","G4","A4","B4", "C5","D5","E5","F5","G5","A5","B5"];
+const NOTES = ["C1","D1","E1","F1","G1","A1","B1", "C2","D2","E2","F2","G2","A2","B2", "C3","D3","E3","F3","G3","A3","B3", "C4","D4","E4","F4","G4","A4","B4", "C5","D5","E5","F5","G5","A5","B5", "C6","D6","E6","F6","G6","A6","B6"];
 
-// --- 150+ SYNTH ENGINE (Optimized & Emoji-Free) ---
+// --- 150+ SYNTH ENGINE (Optimized) ---
 const p = (type, opts) => new Tone.PolySynth(type, opts);
 const m = (opts) => new Tone.MembraneSynth(opts);
 const n = (opts) => new Tone.NoiseSynth(opts);
@@ -129,73 +128,98 @@ const SYNTH_LIBRARY = {
   "DRUMS: Kicks": {
     "Kick - 808 Trap": () => m({ pitchDecay: 0.005, octaves: 2, envelope: { attack: 0.01, decay: 0.8, sustain: 0.1 } }),
     "Kick - House": () => m({ pitchDecay: 0.1, octaves: 5 }),
-    "Kick - Deep Sub": () => m({ pitchDecay: 0.05, octaves: 2 }),
     "Kick - Techno": () => m({ pitchDecay: 0.08, octaves: 4 })
   },
   "DRUMS: Snares": {
     "Snare - Trap": () => n({ noise: { type: 'pink' }, envelope: { attack: 0.001, decay: 0.1 } }),
-    "Snare - Acoustic": () => n({ noise: { type: 'white' }, envelope: { attack: 0.005, decay: 0.2 } }),
-    "Clap - Studio": () => n({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.3 } }),
     "Clap - Wide": () => n({ noise: { type: 'pink' }, envelope: { attack: 0.01, decay: 0.5 } })
   },
   "DRUMS: Percussion": {
     "Perc - Closed Hat": () => new Tone.MetalSynth({ frequency: 250, envelope: { decay: 0.05 } }),
-    "Perc - Open Hat": () => new Tone.MetalSynth({ frequency: 200, envelope: { decay: 0.3 } }),
-    "Perc - Cowbell": () => new Tone.FMSynth({ harmonicity: 1.2, modulationIndex: 2.5, oscillator: { type: "square" } }),
-    "Perc - Rimshot": () => m({ pitchDecay: 0.01, octaves: 2, envelope: { attack: 0.001, decay: 0.05 } })
+    "Perc - Cowbell": () => new Tone.FMSynth({ harmonicity: 1.2, modulationIndex: 2.5, oscillator: { type: "square" } })
   },
   "BASSES": {
     "Bass - Sub Sine": () => p(Tone.Synth, { oscillator: { type: "sine" } }),
-    "Bass - Acid Saw": () => p(Tone.MonoSynth, { oscillator: { type: "sawtooth" }, filter: { Q: 4, type: "lowpass" } }),
-    "Bass - Deep Square": () => p(Tone.Synth, { oscillator: { type: "square" } }),
-    "Bass - Reese Saw": () => p(Tone.Synth, { oscillator: { type: "fatsawtooth", count: 3 } })
+    "Bass - Acid Saw": () => p(Tone.MonoSynth, { oscillator: { type: "sawtooth" }, filter: { Q: 4, type: "lowpass" } })
   },
-  "KEYS & PIANOS": {
-    "Keys - Grand Piano": () => p(Tone.Synth, { oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 1.5, release: 1 } }),
-    "Keys - Electric Rhodes": () => p(Tone.FMSynth, { harmonicity: 2, modulationIndex: 1.5 }),
-    "Keys - FM Tine": () => p(Tone.FMSynth, { harmonicity: 1, modulationIndex: 1 }),
-    "Organ - Church": () => p(Tone.Synth, { oscillator: { type: "fatsquare", count: 3 } })
+  "KEYS": {
+    "Keys - Piano": () => p(Tone.Synth, { oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 1.5, release: 1 } }),
+    "Keys - Rhodes": () => p(Tone.FMSynth, { harmonicity: 2, modulationIndex: 1.5 })
   },
-  "STRINGS & PADS": {
-    "Strings - Ensemble": () => p(Tone.Synth, { oscillator: { type: "fatsawtooth", count: 5 }, envelope: { attack: 0.4, release: 1 } }),
-    "Pad - Dream Sine": () => p(Tone.Synth, { oscillator: { type: "fatsine", spread: 30 }, envelope: { attack: 1, release: 2 } }),
-    "Pad - Dark Saw": () => p(Tone.Synth, { oscillator: { type: "fatsawtooth", spread: 20 }, envelope: { attack: 1.5, release: 2 } }),
-    "Choir - FM Voices": () => p(Tone.FMSynth, { harmonicity: 0.5, modulationIndex: 5 })
-  },
-  "LEADS & SYNTHS": {
-    "Lead - Theremin": () => p(Tone.Synth, { oscillator: { type: "sine" }, portamento: 0.2 }),
-    "Lead - Fat Trance": () => p(Tone.Synth, { oscillator: { type: "fatsawtooth", count: 3, spread: 15 } }),
-    "8-Bit - Pulse 25%": () => p(Tone.Synth, { oscillator: { type: "pulse", width: 0.25 } }),
-    "FX - Sub Drop": () => new Tone.MembraneSynth({ pitchDecay: 0.5, octaves: 10 })
+  "STRINGS": {
+    "Pad - Dream": () => p(Tone.Synth, { oscillator: { type: "fatsine", spread: 30 }, envelope: { attack: 1, release: 2 } })
   }
+};
+
+const debug = (msg) => {
+    console.log(msg);
+    document.getElementById("debug-log").innerText = msg;
 };
 
 // --- BOOTSTRAP SEQUENCE ---
 async function boot() {
   const btn = document.getElementById("start-btn");
+  
   try {
-    const configRes = await fetch(`${BACKEND_URL}/api/config`);
-    const { clientId } = await configRes.json();
-    
+    debug("Fetching Config...");
+    // 1. FETCH CONFIG - TRY RELATIVE FIRST (Discord Proxy)
+    let clientId;
+    try {
+        const configRes = await fetch("/api/config");
+        const configData = await configRes.json();
+        clientId = configData.clientId;
+    } catch (e) {
+        debug("Relative config failed, trying absolute...");
+        const configRes = await fetch(`${BACKEND_URL}/api/config`);
+        const configData = await configRes.json();
+        clientId = configData.clientId;
+    }
+
+    debug("Connecting Sockets...");
     socket = io(BACKEND_URL, { transports: ["websocket"] });
     setupSocket();
 
     const searchParams = new URLSearchParams(window.location.search);
     if (searchParams.has('frame_id')) {
+      debug("Discord detected. Handshaking...");
       discordSdk = new DiscordSDK(clientId);
       await discordSdk.ready();
-      const { code } = await discordSdk.commands.authorize({ client_id: clientId, response_type: "code", prompt: "none", scope: ["identify"] });
-      const res = await fetch(`${BACKEND_URL}/api/token`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({code}) });
+      
+      const { code } = await discordSdk.commands.authorize({ 
+        client_id: clientId, 
+        response_type: "code", 
+        prompt: "none", 
+        scope: ["identify"] 
+      });
+
+      debug("Exchanging Token...");
+      const res = await fetch("/api/token", { 
+        method: "POST", 
+        headers: {"Content-Type":"application/json"}, 
+        body: JSON.stringify({code}) 
+      });
       const { access_token } = await res.json();
+      
+      debug("Authenticating User...");
       const auth = await discordSdk.commands.authenticate({ access_token });
       discordUsername = auth.user.username;
+    } else {
+      debug("Browser mode fallback.");
     }
-  } catch(e) { console.warn("Running in Browser/Offline fallback"); }
-  
-  btn.innerText = "ENTER STUDIO";
-  btn.classList.add("ready");
-  btn.disabled = false;
-  btn.onclick = window.initAudio;
+    
+    btn.innerText = "ENTER STUDIO";
+    btn.classList.add("ready");
+    btn.disabled = false;
+    btn.onclick = window.initAudio;
+
+  } catch(e) { 
+    debug("Error: " + (e.message || e));
+    // Final fallback so the user is never locked out
+    btn.innerText = "ENTER (FAILSAFE MODE)";
+    btn.classList.add("ready");
+    btn.disabled = false;
+    btn.onclick = window.initAudio;
+  }
 }
 
 window.initAudio = async () => {
@@ -204,7 +228,7 @@ window.initAudio = async () => {
   recorder = new Tone.Recorder();
   masterReverb.connect(recorder);
   document.getElementById("start-overlay").style.display = "none";
-  document.getElementById("currentUserDisplay").innerText = "Logged in as: " + discordUsername;
+  document.getElementById("currentUserDisplay").innerText = "User: " + discordUsername;
   startTimingLoop();
 };
 
@@ -228,7 +252,7 @@ function syncSynths() {
   state.channels.forEach(ch => {
     if (!synthInstances[ch.id] || synthInstances[ch.id].type !== ch.inst) {
       if (synthInstances[ch.id]) synthInstances[ch.id].node.dispose();
-      let gen = SYNTH_LIBRARY["KEYS & PIANOS"]["Keys - Grand Piano"];
+      let gen = SYNTH_LIBRARY["KEYS"]["Keys - Piano"];
       for (const cat in SYNTH_LIBRARY) { if (SYNTH_LIBRARY[cat][ch.inst]) gen = SYNTH_LIBRARY[cat][ch.inst]; }
       let node = gen().connect(masterReverb);
       synthInstances[ch.id] = { type: ch.inst, node: node };
@@ -264,7 +288,7 @@ function buildGrid() {
     const noteS = document.createElement("select"); noteS.className = "note-select";
     NOTES.forEach(n => { const o = document.createElement("option"); o.value=o.innerText=n; if(ch.note===n) o.selected=true; noteS.appendChild(o); });
     noteS.onchange = (e) => socket.emit("updateTrackParam", { channelId: ch.id, key: "note", value: e.target.value });
-    tr1.append(instS, noteS); controls.appendChild(tr1);
+    tr1.append(instS, noteS); controls.append(tr1);
 
     const tr2 = document.createElement("div"); tr2.className = "track-row";
     const spdS = document.createElement("select"); spdS.className = "speed-select";
@@ -273,7 +297,7 @@ function buildGrid() {
     
     const volC = document.createElement("div"); volC.className = "vol-container";
     volC.innerHTML = `<label style="font-size:9px;color:var(--text-muted)">VOL</label><input type="range" class="vol-slider" min="-30" max="10" value="${ch.vol}" oninput="window.updateLocalVol('${ch.id}', this.value)" onchange="window.updateRemoteVol('${ch.id}', this.value)">`;
-    tr2.append(spdS, volC); controls.appendChild(tr2); row.appendChild(controls);
+    tr2.append(spdS, volC); controls.append(tr2); row.append(controls);
 
     const stepsContainer = document.createElement("div"); stepsContainer.className = "steps";
     buttons[ch.id] = [];
@@ -307,7 +331,7 @@ function updatePlayhead(tick32) {
   });
 }
 
-// --- GLOBAL WINDOW HELPERS ---
+// --- GLOBALS ---
 window.togglePlay = () => socket.emit("togglePlay", !isPlaying);
 window.clearGrid = () => socket.emit("clearGrid");
 window.sendBPM = (v) => socket.emit("setBPM", Number(v));
